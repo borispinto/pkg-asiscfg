@@ -203,7 +203,7 @@ pkg-asiscfg/
 │       └── utils.py              # Paletas, temas e iconos
 ├── resources/                    # Recursos raíz (iconos y logos de distribución)
 ├── tests/                        # Suite de pruebas unitarias automatizadas
-│   ├── test_config_package.py    # Pruebas de esquemas, cifrado y multiempresa
+│   ├── test_config_package.py    # Pruebas de esquemas, cifrado y perfiles
 │   ├── test_connection_mapping.py# Pruebas de mapeo de conexión y comodines
 │   └── test_ui_profile_validation.py # Pruebas de validación estricta en UI y contraseñas
 ├── build_exe.py / .ps1           # Scripts de compilación PyInstaller
@@ -363,7 +363,7 @@ La clase `ConfigDict` hereda de `dict` e incorpora métodos especializados de se
 
 ### Ejemplo Completo de `config_schema.py`
 
-A continuación se presenta el archivo de esquema canónico completo que centraliza la definición de metadatos, parámetros generales, rutas globales, conexiones multi-motor y configuración multi-empresa:
+A continuación se presenta el archivo de esquema canónico completo que centraliza la definición de metadatos, parámetros generales, rutas globales, conexiones multi-motor y configuración multi-perfil (empresas):
 
 ```python
 # -*- coding: utf-8 -*-
@@ -415,7 +415,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "type": "enum", 
             "options": get_supported_drivers()
         },
-        "host": {"default": "SQLSERVER", "description": "t18n#Servidor SQL principal para todas las empresas."},
+        "host": {"default": "SQLSERVER", "description": "t18n#Servidor SQL principal para todos los perfiles."},
         "port": {"default": "", "description": "t18n#Puerto de escucha TCP/IP SQL (vacío para default del driver)."},
         "user": {"default": "sa", "description": "t18n#Usuario SQL principal."},
         "password": {"default": "", "description": "t18n#Contraseña SQL principal.", "is_password": True},
@@ -429,11 +429,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "tds_version": {"default": "", "description": "t18n#Versión del protocolo TDS para pymssql (7.2, 7.4, etc)."}
     },
 
-    # ── 5. Configuración Multi-Empresa ──
+    # ── 5. Configuración Multi-Perfil (Empresas) ──
     "@profiles": {
         "_template": {
             "info": {
-                "name": {"default": "", "description": "t18n#Razón Social de la empresa."},
+                "name": {"default": "", "description": "t18n#Descripción del perfil/empresa."},
                 "empresa_origen": {"default": "01", "description": "t18n#Código de Empresa Origen (FoxPro)."},
                 "empresa_destino": {"default": "01", "description": "t18n#Código de Empresa Destino (SQL Server)."}
             },
@@ -449,7 +449,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
                         "empresa_destino": "info.empresa_destino"
                     }
                 },
-                # Sobreescritura específica por empresa (vacío hereda de conexiones global)
+                # Sobreescritura específica por perfil (vacío hereda de conexiones global)
                 "driver": {
                     "default": "", 
                     "description": "t18n#Motor SQL específico (dejar vacío para heredar de conexiones.driver).", 
@@ -487,7 +487,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             }
         },
 
-        # Empresa inicial por defecto
+        # Perfil inicial por defecto
         "01": {
             "info": {
                 "name": "",
@@ -544,10 +544,11 @@ El esquema se divide en 6 bloques fundamentales:
    - Integración con `asisdb.get_supported_drivers()` para enumerar dinámicamente los motores disponibles (`mssql`, `postgresql`, `mysql`, `sqlite`, `foxpro`).
    - Campos de contraseña protegidos (`"is_password": True`).
 
-5. **Configuración Multi-Empresa (`@profiles`):**
-   - **Plantilla base `_template`:** Define la estructura que heredará cualquier nueva empresa agregada desde la GUI.
-   - **Herencia en cascada:** Los campos dejados en blanco en una empresa heredan automáticamente el valor global de la sección `conexiones`.
-   - **Botones de prueba interactivos:** Prueban la conectividad de forma independiente para FoxPro y SQL Server.
+5. **Configuración Multi-Perfil (`@profiles`):**
+   - La sección especial `@profiles` modela colecciones de perfiles o entornos de trabajo repetitivos e independientes (cuyo caso de uso más habitual son empresas, sucursales, clientes o proyectos).
+   - **Plantilla base `_template`:** Define la estructura de campos y botones que heredará automáticamente cualquier nuevo perfil que se agregue o clone en la GUI.
+   - **Herencia en cascada:** Los campos dejados en blanco en un perfil específico heredan automáticamente el valor configurado en la sección global correspondiente (ej. `conexiones`).
+   - **Botones de prueba interactivos:** Prueban la conectividad de forma independiente para cada perfil (en el ejemplo, FoxPro y SQL Server).
 
 6. **Política de Respaldos (`_backup`):**
    - Vinculación reactiva mediante `SCHEMA_KEY("paths.backup_config_path")` y `SCHEMA_KEY("general.backup_config_pattern")`.
@@ -566,8 +567,8 @@ Permiten ejecutar pruebas de conectividad directamente desde la interfaz mediant
   ```python
   "host": ["host", "conexiones.host"]
   ```
-  *(Busca primero en `conexiones.host` de la empresa activa; si está vacío, hereda del `conexiones.host` global).*
-- **Comodines dinámicos:** Interpolación automática de `{empresa_destino}` y `{empresa_origen}` en rutas FoxPro y nombres de bases de datos SQL.
+  *(Busca primero en `conexiones.host` del perfil activo; si está vacío, hereda del `conexiones.host` global).*
+- **Comodines dinámicos:** Interpolación automática de variables definidas en el perfil (en este ejemplo, `{empresa_destino}` y `{empresa_origen}`) en rutas FoxPro y nombres de bases de datos SQL.
 - **Aislamiento:** Los botones se definen únicamente donde aplican en la GUI y nunca se persisten en el archivo JSON/cifrado final.
 
 ---

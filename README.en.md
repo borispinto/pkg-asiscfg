@@ -63,7 +63,7 @@ Modular Python library and graphical viewer/editor (GUI) for centralized managem
   - **Hierarchical Cascading Inheritance:** `valor_parent()` and `valorpass_parent()` resolve values with priority: Profile (`@profiles.<id>.<sec>.<key>`) ➔ Global (`<sec>.<key>`) ➔ Schema default.
 - **Modern Graphical User Interface (CustomTkinter):**
   - **Origin Read Indicator:** Displays in header whether the active file loaded as `📄 Read origin: Plain Text (Editable)` or under an encrypted mode.
-  - **Dedicated Save Actions:** Dedicated buttons for saving in plain editable or fully encrypted mode based on operational requirements.
+  - **Dedicated Save Actions:** Dedicated buttons for saving in plain editable or total encrypted mode based on operational requirements.
   - **Strict Visual Validation:** Real-time validation of numerical types, ranges (`min`/`max`), enums, and required fields before saving.
   - **Integrated Connection Testing (`test_connection`):** Configurable schema buttons to test database connectivity (SQL Server, PostgreSQL, MySQL, SQLite, FoxPro/DBF) delegating to `pkg-asisdb`.
   - **Multi-Profile Management:** Create, clone, rename, delete, and customize company profiles based on `_template`.
@@ -203,7 +203,7 @@ pkg-asiscfg/
 │       └── utils.py              # Colors, palettes, themes, and icons
 ├── resources/                    # Root distribution assets
 ├── tests/                        # Automated unit test suite
-│   ├── test_config_package.py    # Schema tests, encryption, and multi-company profiles
+│   ├── test_config_package.py    # Schema tests, encryption, and profile tests
 │   ├── test_connection_mapping.py# Connection mapping and wildcard interpolation
 │   └── test_ui_profile_validation.py # UI validation and password integrity tests
 ├── build_exe.py / .ps1           # PyInstaller build scripts
@@ -363,7 +363,7 @@ The `ConfigDict` class extends `dict` with specialized security and inheritance 
 
 ### Full `config_schema.py` Example
 
-Below is the complete canonical configuration schema file centralizing application metadata, general parameters, global paths, multi-engine database connections, and multi-company profile templates:
+Below is the complete canonical configuration schema file centralizing application metadata, general parameters, global paths, multi-engine database connections, and multi-profile (companies) configuration:
 
 ```python
 # -*- coding: utf-8 -*-
@@ -415,7 +415,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "type": "enum", 
             "options": get_supported_drivers()
         },
-        "host": {"default": "SQLSERVER", "description": "t18n#Servidor SQL principal para todas las empresas."},
+        "host": {"default": "SQLSERVER", "description": "t18n#Servidor SQL principal para todos los perfiles."},
         "port": {"default": "", "description": "t18n#Puerto de escucha TCP/IP SQL (vacío para default del driver)."},
         "user": {"default": "sa", "description": "t18n#Usuario SQL principal."},
         "password": {"default": "", "description": "t18n#Contraseña SQL principal.", "is_password": True},
@@ -429,11 +429,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "tds_version": {"default": "", "description": "t18n#Versión del protocolo TDS para pymssql (7.2, 7.4, etc)."}
     },
 
-    # ── 5. Configuración Multi-Empresa ──
+    # ── 5. Configuración Multi-Perfil (Empresas) ──
     "@profiles": {
         "_template": {
             "info": {
-                "name": {"default": "", "description": "t18n#Razón Social de la empresa."},
+                "name": {"default": "", "description": "t18n#Descripción del perfil/empresa."},
                 "empresa_origen": {"default": "01", "description": "t18n#Código de Empresa Origen (FoxPro)."},
                 "empresa_destino": {"default": "01", "description": "t18n#Código de Empresa Destino (SQL Server)."}
             },
@@ -449,7 +449,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
                         "empresa_destino": "info.empresa_destino"
                     }
                 },
-                # Sobreescritura específica por empresa (vacío hereda de conexiones global)
+                # Sobreescritura específica por perfil (vacío hereda de conexiones global)
                 "driver": {
                     "default": "", 
                     "description": "t18n#Motor SQL específico (dejar vacío para heredar de conexiones.driver).", 
@@ -487,7 +487,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             }
         },
 
-        # Empresa inicial por defecto
+        # Perfil inicial por defecto
         "01": {
             "info": {
                 "name": "",
@@ -544,10 +544,11 @@ The schema is divided into 6 core sections:
    - Integration with `asisdb.get_supported_drivers()` to enumerate available database engines (`mssql`, `postgresql`, `mysql`, `sqlite`, `foxpro`).
    - Protected credential fields (`"is_password": True`).
 
-5. **Multi-Company Profiles (`@profiles`):**
-   - **Base template `_template`:** Defines the schema structure inherited by any new company profile created in GUI.
-   - **Cascading inheritance:** Fields left blank in a company profile automatically fallback to the global `conexiones` values.
-   - **Independent test buttons:** Dedicated connectivity testing for FoxPro and SQL engines.
+5. **Multi-Profile Configuration (`@profiles`):**
+   - The special `@profiles` section models collections of repetitive, independent profiles or environments (with companies, branches, clients, or projects being the most common use cases).
+   - **Base template `_template`:** Defines the field and button structure automatically inherited whenever a new profile is added or cloned in the GUI.
+   - **Cascading inheritance:** Fields left blank in a specific profile automatically inherit the values configured in the corresponding global section (e.g. `conexiones`).
+   - **Interactive test buttons:** Test connectivity independently for each profile (in this example, FoxPro and SQL Server).
 
 6. **Backup Policy (`_backup`):**
    - Reactive parameter binding using `SCHEMA_KEY("paths.backup_config_path")` and `SCHEMA_KEY("general.backup_config_pattern")`.
@@ -567,7 +568,7 @@ Allow testing database connectivity directly from the UI with `"type": "test_con
   "host": ["host", "conexiones.host"]
   ```
   *(Checks profile-specific `conexiones.host` first; falls back to global `conexiones.host` if empty).*
-- **Dynamic Placeholders:** Automatic interpolation of `{empresa_destino}` and `{empresa_origen}` in paths and SQL database names.
+- **Dynamic Placeholders:** Automatic interpolation of variables defined in the profile (in this example, `{empresa_destino}` and `{empresa_origen}`) in FoxPro paths and SQL database names.
 - **Isolation:** Test buttons are UI-only actions and are never written to the final saved configuration.
 
 ---

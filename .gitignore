@@ -73,6 +73,9 @@ chat_historico/
 PRUEB*
 Doc_inicial
 VS*.bat
+build32.bat
+requi32.txt
+vir32.bat
 
 # ==========================================
 # Logs y Archivos Temporales
