@@ -8,7 +8,7 @@ Librería modular y visor/editor gráfico (GUI) para la gestión centralizada, v
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Cryptography: Fernet](https://img.shields.io/badge/cryptography-AES--128--CBC-green.svg)](https://cryptography.io/)
+[![Cryptography: Multi-Engine AEAD](https://img.shields.io/badge/cryptography-Fernet%20%7C%20AES--256--GCM%20%7C%20ChaCha20-green.svg)](https://cryptography.io/)
 
 ---
 
@@ -16,8 +16,8 @@ Librería modular y visor/editor gráfico (GUI) para la gestión centralizada, v
 
 - [Características Principales](#-características-principales)
 - [Nivel de Seguridad y Arquitectura Criptográfica](#-nivel-de-seguridad-y-arquitectura-criptográfica)
-  - [1. Criptografía Robusta Estándar (Fernet / AES-128-CBC + HMAC-SHA256)](#1-criptografía-robusta-estándar-fernet--aes-128-cbc--hmac-sha256)
-  - [2. Modelo de Cifrado Híbrido vs Total](#2-modelo-de-cifrado-híbrido-vs-total)
+  - [1. Patrón Estrategia y Motores Criptográficos Soportados](#1-patrón-estrategia-y-motores-criptográficos-soportados)
+  - [2. Comparativa de Motores y Formatos de Almacenamiento](#2-comparativa-de-motores-y-formatos-de-almacenamiento)
   - [3. Principio de Mínima Exposición (Lazy / Just-In-Time Decryption)](#3-principio-de-mínima-exposición-lazy--just-in-time-decryption)
   - [4. Comparación Segura de Contraseñas (In-Memory Safe Match)](#4-comparación-segura-de-contraseñas-in-memory-safe-match)
   - [5. Detección y Saneamiento Automático de Contraseñas en Texto Claro](#5-detección-y-saneamiento-automático-de-contraseñas-en-texto-claro)
@@ -33,15 +33,13 @@ Librería modular y visor/editor gráfico (GUI) para la gestión centralizada, v
 - [API de Acceso a Datos (`ConfigDict`)](#-api-de-acceso-a-datos-configdict)
   - [Tabla de Métodos de Acceso](#tabla-de-métodos-de-acceso)
   - [Herencia en Cascada (`valor_parent` / `valorpass_parent`)](#herencia-en-cascada-valor_parent--valorpass_parent)
-  - [Gestión de Perfiles (`get_profiles`, `get_profile_config`)](#gestión-de-perfiles-get_profiles-get_profile_config)
+  - [Gestión de Perfiles](#gestión-de-perfiles)
 - [Definición de Esquemas (`config_schema.py`)](#-definición-de-esquemas-config_schemapy)
-  - [Esquema Estándar y Metadatos de Campo](#esquema-estándar-y-metadatos-de-campo)
-  - [Soporte Multi-Perfil (`_template`)](#soporte-multi-perfil-_template)
+  - [Ejemplo Completo de `config_schema.py`](#ejemplo-completo-de-config_schemapy)
+  - [Desglose y Estructura del Esquema](#desglose-y-estructura-del-esquema)
   - [Botones de Prueba de Conexión (`test_connection`)](#botones-de-prueba-de-conexión-test_connection)
   - [Política de Respaldos Automáticos (`_backup`)](#política-de-respaldos-automáticos-_backup)
 - [Compilación a Ejecutable Standalone (PyInstaller)](#-compilación-a-ejecutable-standalone-pyinstaller)
-  - [Compilación 64-bit](#compilación-64-bit)
-  - [Compilación 32-bit (Windows 7 / x86)](#compilación-32-bit-windows-7--x86)
 - [Consideraciones Críticas de Seguridad y Operación](#-consideraciones-críticas-de-seguridad-y-operación)
 - [Resolución de Problemas Frecuentes](#-resolución-de-problemas-frecuentes)
 - [Autoría y Créditos](#-autoría-y-créditos)
@@ -51,19 +49,21 @@ Librería modular y visor/editor gráfico (GUI) para la gestión centralizada, v
 
 ## 🚀 Características Principales
 
-- **Formatos de Almacenamiento Flexibles:**
-  - **Modo Texto Plano Híbrido (`format_mode="plain"`, por defecto):** Guarda la configuración en formato JSON legible e identado con cabecera `# ASISCFG_PLAIN`, cifrando con Fernet **únicamente los campos sensibles** (`"is_password": True`) bajo el formato `"password": "ENC:gAAAAAB..."`. Permite inspeccionar y editar parámetros generales (puertos, IPs, nombres, flags) con cualquier editor de texto (Notepad, VS Code).
-  - **Modo Cifrado Total (`format_mode="encrypted"`):** Cifra el archivo completo en un bloque binario seguro con Fernet (AES-128-CBC + HMAC-SHA256).
-  - **Autodetección Inteligente de Formato:** `load_config()` detecta el formato de forma automática y transparente inspeccionando la firma del archivo o el binario Fernet, sin requerir parámetros adicionales.
+- **Arquitectura Multicriptográfica y Formatos de Almacenamiento:**
+  - **Modo Texto Plano Híbrido (`format_mode="plain"`, por defecto):** Guarda la configuración en formato JSON legible e identado con cabecera `# ASISCFG_PLAIN`, cifrando de forma granular **únicamente los campos sensibles** (`"is_password": True`) bajo el token seguro `"password": "ENC:..."`. Permite inspeccionar y editar parámetros generales (puertos, IPs, nombres, flags) con cualquier editor de texto (Notepad, VS Code).
+  - **Modo Cifrado Fernet (`format_mode="fernet"`):** Cifra el archivo completo en un bloque binario autenticado con Fernet (AES-128-CBC + HMAC-SHA256) con cabecera `# ASISCFG_FERNET`.
+  - **Modo Cifrado AES-256-GCM (`format_mode="aes256_gcm"`):** Cifra el archivo completo utilizando AEAD autenticado estándar NIST de 256 bits (Nonce 96-bit + Tag 128-bit) con cabecera `# ASISCFG_AES256GCM`.
+  - **Modo Cifrado ChaCha20-Poly1305 (`format_mode="chacha20"`):** Cifra el archivo completo mediante AEAD autenticado moderno de alto rendimiento RFC 8439 (Nonce 96-bit + Tag Poly1305 128-bit) con cabecera `# ASISCFG_CHACHA20`.
+  - **Autodetección Estricta por Cabeceras:** `load_config()` detecta el formato y motor de cifrado de forma automática e instantánea inspeccionando los bytes iniciales del archivo, sin requerir parámetros manuales.
   - **Nombres y Extensiones Arbitrarias:** Admite cualquier extensión (`config.enc`, `config.json`, `config.cfg`, etc.).
 - **Modelo de Acceso Seguro a Datos (`ConfigDict`):**
-  - **Enmascaramiento de Contraseñas:** `valor()` y `valor_profile()` devuelven una máscara protectora `<pass_seccion.clave>` para prevenir fugas accidentales en logs o trazas.
+  - **Enmascaramiento de Contraseñas:** `valor()` y `valor_profile()` devuelven una máscara protectora `<pass_seccion.clave>` para prevenir fugas accidentales en logs, pantallas o trazas.
   - **Descifrado Just-In-Time (JIT):** `valorpass()` y `valorpass_profile()` descifran la credencial en memoria únicamente en el milisegundo exacto de su invocación.
   - **Comparación In-Memory sin Exposición:** `valorpass(..., valor_compara="pass")` valida contraseñas de forma atómica retornando un booleano (`True`/`False`), evitando asignar texto plano a variables intermedias.
   - **Herencia Jerárquica en Cascada:** `valor_parent()` y `valorpass_parent()` resuelven valores con prioridad Perfil (`@profiles.<id>.<sec>.<campo>`) ➔ Global (`<sec>.<campo>`) ➔ Default del esquema.
 - **Interfaz Gráfica Moderna (CustomTkinter):**
-  - **Indicador de Origen de Lectura:** Muestra en el encabezado si el archivo activo se leyó como `📄 Origen de lectura: Texto Plano (Editable)` o `🔒 Origen de lectura: Totalmente Encriptado`.
-  - **Botones de Guardado Independientes:** Dos botones dedicados: `📄 Grabar Editable` (modo plain) y `🔒 Grabar Encriptado` (modo cifrado total).
+  - **Indicador de Origen de Lectura:** Muestra en el encabezado si el archivo activo se leyó como `📄 Origen de lectura: Texto Plano (Editable)` o bajo un modo cifrado.
+  - **Botones de Guardado Independientes:** Guardado directo en modo editable (plain) o cifrado según las necesidades del entorno.
   - **Validación Visual Estricta:** Validación en tiempo real de tipos numéricos, rangos (`min`/`max`), enumerados y campos obligatorios antes de permitir guardar.
   - **Prueba de Conexión Integrada (`test_connection`):** Botones configurables en el esquema para validar conectividad con bases de datos (SQL Server, PostgreSQL, MySQL, SQLite y tablas FoxPro/DBF) delegando en la librería externa `pkg-asisdb`.
   - **Gestión Multiperfil:** Alta, clonación, renombramiento, eliminación y personalización de perfiles con plantilla base `_template`.
@@ -77,24 +77,35 @@ Librería modular y visor/editor gráfico (GUI) para la gestión centralizada, v
 
 ## 🛡️ Nivel de Seguridad y Arquitectura Criptográfica
 
-`pkg-asiscfg` ha sido diseñado siguiendo estándares de la industria para garantizar confidencialidad, integridad y no repudio en la gestión de credenciales y configuraciones de misión crítica.
+`pkg-asiscfg` implementa una arquitectura modular basada en el **Patrón Estrategia (Strategy Pattern)** que garantiza confidencialidad, autenticidad, integridad y no repudio.
 
 ```mermaid
 flowchart TD
-    subgraph Storage["Almacenamiento en Disco"]
-        PlainMode["Modo Plain Híbrido<br/>(# ASISCFG_PLAIN)<br/>Variables en claro + Passwords 'ENC:gAAAAAB...'"]
-        EncMode["Modo Cifrado Total<br/>Blob Binario Fernet"]
+    subgraph Storage["Almacenamiento en Disco (Format Modes)"]
+        PlainMode["Modo Plain Híbrido<br/>(# ASISCFG_PLAIN)<br/>Variables JSON en claro + Passwords 'ENC:...'"]
+        FernetMode["Modo Fernet Total<br/>(# ASISCFG_FERNET)<br/>Payload binario AES-128-CBC + HMAC"]
+        AesGcmMode["Modo AES-256-GCM<br/>(# ASISCFG_AES256GCM)<br/>Payload AEAD 256-bit + Nonce 96-bit + Tag 128-bit"]
+        ChaChaMode["Modo ChaCha20-Poly1305<br/>(# ASISCFG_CHACHA20)<br/>Payload AEAD RFC 8439 + Tag Poly1305"]
     end
 
-    subgraph CoreEngine["Motor Core (asiscfg)"]
-        FernetEngine["Criptografía Fernet<br/>(AES-128-CBC + HMAC-SHA256)"]
-        KeyFile["Archivo de Clave Maestra<br/>(secret.key / permisos NTFS)"]
-        KeyFile --> FernetEngine
+    subgraph CryptoStrategy["Motores Criptográficos (asiscfg.crypto)"]
+        BaseEngine["BaseFormatEngine<br/>(Interface Abstracta)"]
+        EngPlain["PlainFormatEngine"]
+        EngFernet["FernetFormatEngine"]
+        EngAes["Aes256GcmFormatEngine"]
+        EngChaCha["ChaCha20FormatEngine"]
+        KeyFile["Archivo de Clave Maestra<br/>(secret.key / 32 bytes / Base64 urlsafe)"]
+        
+        BaseEngine --> EngPlain
+        BaseEngine --> EngFernet
+        BaseEngine --> EngAes
+        BaseEngine --> EngChaCha
+        KeyFile --> CryptoStrategy
     end
 
-    subgraph MemoryModel["Modelo en Memoria (ConfigDict)"]
-        PlainVars["Variables Generales<br/>(host, port, debug, flags)"]
-        EncTokens["Tokens Cifrados en Memoria<br/>(ENC:...)"]
+    subgraph MemoryModel["Modelo Seguro en Memoria (ConfigDict)"]
+        PlainVars["Variables Generales en Claro<br/>(host, port, debug, flags, paths)"]
+        EncTokens["Tokens Cifrados en Memoria<br/>('ENC:...')"]
     end
 
     subgraph AccessAPI["API de Acceso Seguro"]
@@ -103,28 +114,50 @@ flowchart TD
         ValorPassComp["cfg.valorpass('db.pass', valor_compara='...')<br/>➔ Comparación Atómica (True / False)"]
     end
 
-    Storage --> CoreEngine
-    CoreEngine --> MemoryModel
+    Storage --> CryptoStrategy
+    CryptoStrategy --> MemoryModel
     MemoryModel --> AccessAPI
 ```
 
-### 1. Criptografía Robusta Estándar (Fernet / AES-128-CBC + HMAC-SHA256)
-- La suite criptográfica utiliza la especificación **Fernet** de la librería estándar `cryptography`.
-- **Confidencialidad:** Cifrado simétrico **AES con clave de 128 bits en modo CBC** con relleno PKCS7.
-- **Integridad y Autenticidad:** Firma criptográfica **HMAC con SHA-256** calculada sobre el vector de inicialización (IV) y el texto cifrado. Esto previene ataques de manipulación (tampering) o modificación no autorizada: cualquier alteración de un solo bit en el token cifrado provocará el rechazo inmediato de la lectura.
-- **Vector de Inicialización (IV) Único:** Cada operación de cifrado genera un IV aleatorio y un timestamp de 64 bits, garantizando que cifrar dos veces la misma contraseña genere tokens cifrados totalmente diferentes.
+### 1. Patrón Estrategia y Motores Criptográficos Soportados
 
-### 2. Modelo de Cifrado Híbrido vs Total
-| Dimensión | Modo Plain Híbrido (`format_mode="plain"`) | Modo Cifrado Total (`format_mode="encrypted"`) |
-| :--- | :--- | :--- |
-| **Cabecera** | `# ASISCFG_PLAIN` | Encapsulado binario Fernet |
-| **Variables Generales** | Texto JSON legible e identado | Cifradas en bloque binario |
-| **Campos Sensibles** | Cifrados individualmente (`"password": "ENC:..."`) | Cifrados dentro del bloque |
-| **Edición Externa** | Permite modificar IPs, puertos y flags con Notepad/VS Code sin alterar contraseñas | Requiere la GUI `asiscfg` o la librería en Python |
-| **Seguridad de Claves** | **Idéntica (Fernet)** para todas las contraseñas | **Idéntica (Fernet)** para todo el archivo |
+El módulo [`asiscfg.crypto`](file:///d:/COMSISA%20Proyectos/pkg-asiscfg/asiscfg/crypto.py) define el registro canónico `FORMAT_MODES` con cuatro motores especializados derivados de `BaseFormatEngine`:
+
+1. **`PlainFormatEngine` (`format_mode="plain"`)**:
+   - **Cabecera de archivo:** `# ASISCFG_PLAIN`.
+   - **Estructura del payload:** Contenido JSON formateado e identado en claro (UTF-8).
+   - **Campos sensibles:** Cada campo marcado con `"is_password": True` se cifra individualmente generando un token `ENC:<token>` mediante la clave maestra.
+   - **Valores nulos/vacíos:** Se normalizan de forma estricta al centinela canónico `NULL_SENTINEL` (`"<%null$>"`), evitando almacenar cadenas vacías en texto plano.
+
+2. **`FernetFormatEngine` (`format_mode="fernet"`)**:
+   - **Cabecera de archivo:** `# ASISCFG_FERNET`.
+   - **Algoritmo:** Cifrado simétrico **AES con clave de 128 bits en modo CBC** con relleno PKCS7.
+   - **Integridad y Autenticación:** Firma criptográfica **HMAC-SHA256** calculada sobre el vector de inicialización (IV) y el texto cifrado.
+   - **IV Único:** Vector de inicialización aleatorio y timestamp de 64 bits por cada operación.
+
+3. **`Aes256GcmFormatEngine` (`format_mode="aes256_gcm"`)**:
+   - **Cabecera de archivo:** `# ASISCFG_AES256GCM`.
+   - **Algoritmo:** **AES-256-GCM** (Galois/Counter Mode), estándar criptográfico de la industria para cifrado autenticado (AEAD).
+   - **Estructura de payload:** Nonce de 96 bits (12 bytes aleatorios) + Ciphertext + Tag de autenticación de 128 bits (16 bytes), codificado en Base64 urlsafe.
+   - **Seguridad:** Cifrado de 256 bits de máxima robustez con verificación criptográfica integrada contra manipulaciones.
+
+4. **`ChaCha20FormatEngine` (`format_mode="chacha20"`)**:
+   - **Cabecera de archivo:** `# ASISCFG_CHACHA20`.
+   - **Algoritmo:** **ChaCha20-Poly1305** (RFC 8439), cifrador de flujo de 256 bits de alto rendimiento autenticado con Poly1305.
+   - **Estructura de payload:** Nonce de 96 bits (12 bytes aleatorios) + Ciphertext + Tag Poly1305 de 128 bits, codificado en Base64 urlsafe.
+   - **Rendimiento:** Excelente velocidad y resistencia a ataques de canal lateral (timing attacks) tanto en procesadores con como sin aceleración AES por hardware.
+
+### 2. Comparativa de Motores y Formatos de Almacenamiento
+
+| Modo de Formato | Identificador | Cabecera Canónica | Algoritmo / AEAD | Clave Requerida | Edición Externa (JSON) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Texto Plano Híbrido** | `plain` | `# ASISCFG_PLAIN` | Token `ENC:...` granular | 32 bytes (Base64) | ✅ Sí (variables generales) |
+| **Fernet Total** | `fernet` | `# ASISCFG_FERNET` | AES-128-CBC + HMAC-SHA256 | 32 bytes (Fernet/Base64) | ❌ No (requiere GUI/Librería) |
+| **AES-256-GCM Total** | `aes256_gcm` | `# ASISCFG_AES256GCM` | AES-256-GCM (NIST AEAD) | 32 bytes (256-bit Base64) | ❌ No (requiere GUI/Librería) |
+| **ChaCha20 Total** | `chacha20` | `# ASISCFG_CHACHA20` | ChaCha20-Poly1305 (RFC 8439) | 32 bytes (256-bit Base64) | ❌ No (requiere GUI/Librería) |
 
 ### 3. Principio de Mínima Exposición (Lazy / Just-In-Time Decryption)
-Para prevenir la exposición accidental de contraseñas en trazas de error, dumps de memoria o registros de logging:
+Para prevenir la exposición accidental de contraseñas en trazas de error, volcados de memoria o registros de logging:
 - Al cargar el archivo de configuración a memoria con `load_config()`, los campos marcados con `"is_password": True` **no se descifran masivamente**; se mantienen almacenados como tokens cifrados (`ENC:...`).
 - Si un desarrollador llama accidentalmente a `cfg.valor("database.password")` o imprime `print(cfg.valor(...))`, la librería **nunca expone la contraseña** y devuelve la máscara `<pass_database.password>`.
 - El descifrado se realiza **exclusivamente bajo demanda (Just-In-Time)** cuando la aplicación invoca `cfg.valorpass()` o `cfg.valorpass_profile()`.
@@ -132,22 +165,22 @@ Para prevenir la exposición accidental de contraseñas en trazas de error, dump
 ### 4. Comparación Segura de Contraseñas (In-Memory Safe Match)
 Cuando la aplicación necesita verificar si una clave ingresada por un usuario es correcta, no es necesario asignar la contraseña descifrada a una variable en texto plano:
 ```python
-# Validación atómica sin retener texto plano en memoria:
+# Validación atómica sin retener texto plano en variables intermedias:
 es_valida = config.valorpass("database.password", valor_compara=input_usuario)
 # Retorna True si coincide, False si no coincide
 ```
 
 ### 5. Detección y Saneamiento Automático de Contraseñas en Texto Claro
 - Si un operador edita manualmente el archivo JSON e introduce una contraseña en texto claro (sin el prefijo `ENC:`):
-  - En modo ejecución estándar, `asiscfg` detecta la anomalía de seguridad.
-  - En modo interfaz gráfica (`edit_mode=True`), el método `cfg.get_unencrypted_passwords()` identifica las variables comprometidas y despliega un diálogo modal de advertencia (`PlaintextPasswordsWarningDialog`), forzando su cifrado automático con Fernet en el momento de guardar.
+  - En modo ejecución estándar (`edit_mode=False`), `asiscfg` detecta la anomalía de seguridad y detiene la ejecución reportando el fallo.
+  - En modo interfaz gráfica (`edit_mode=True`), el método `cfg.get_unencrypted_passwords()` identifica las variables comprometidas y despliega un diálogo modal de advertencia (`PlaintextPasswordsWarningDialog`), forzando su cifrado automático al guardar.
 
 ### 6. Control de Acceso, Hashing y Elevación de Privilegios (UAC)
 - **Contraseña de Administración:** La clave para ingresar al configurador GUI se almacena en la sección `@asiscfg.admin_pass_hash` mediante un resumen criptográfico **SHA-256 unidireccional** (`hash_password()`).
-- **Validación UAC de Windows:** Para evitar que usuarios locales sin privilegios modifiquen la configuración de servicios en producción, `is_admin()` valida los privilegios elevados del sistema operativo. La bandera `--dev` omite esta verificación únicamente para desarrollo y tests.
+- **Validación UAC de Windows:** Para evitar que usuarios locales sin privilegios modifiquen la configuración de servicios en producción, `is_admin()` valida los privilegios elevados del sistema operativo. La bandera `--dev` omite esta verificación únicamente para desarrollo y pruebas.
 
 ### 7. Auditoría Inmutable de Operaciones
-- Todas las operaciones críticas (apertura del configurador, intentos de acceso, cambios de contraseña de administrador y eventos de guardado) se registran con marca de tiempo ISO en `audit.log`.
+- Todas las operaciones críticas (apertura del configurador, intentos de autenticación, cambios de contraseña de administrador y eventos de guardado) se registran con marca de tiempo ISO en `audit.log`.
 
 ---
 
@@ -159,7 +192,7 @@ pkg-asiscfg/
 │   ├── __init__.py               # Fachada y exportación de API pública
 │   ├── constants.py              # Rutas por defecto, firmas de versión y constantes
 │   ├── core.py                   # Carga, guardado, cifrado híbrido, backup y esquemas
-│   ├── crypto.py                 # Estrategias y motores criptográficos (Fernet, AES-GCM, ChaCha20)
+│   ├── crypto.py                 # Motores criptográficos (Plain, Fernet, AES-256-GCM, ChaCha20)
 │   ├── models.py                 # Modelo ConfigDict, métodos valor/valorpass y cascada
 │   ├── schema.py                 # Validación de tipos, rangos numéricos y metadatos
 │   ├── security.py               # Hashing SHA-256, validación UAC y auditoría
@@ -170,14 +203,12 @@ pkg-asiscfg/
 │       └── utils.py              # Paletas, temas e iconos
 ├── resources/                    # Recursos raíz (iconos y logos de distribución)
 ├── tests/                        # Suite de pruebas unitarias automatizadas
-│   ├── test_config_package.py    # Pruebas de esquemas, cifrado híbrido y multiempresa
+│   ├── test_config_package.py    # Pruebas de esquemas, cifrado y multiempresa
 │   ├── test_connection_mapping.py# Pruebas de mapeo de conexión y comodines
 │   └── test_ui_profile_validation.py # Pruebas de validación estricta en UI y contraseñas
-├── build_exe.py / .ps1           # Scripts de compilación PyInstaller 64-bit
-├── build32.bat                   # Script de compilación PyInstaller 32-bit (Win7 / x86)
+├── build_exe.py / .ps1           # Scripts de compilación PyInstaller
 ├── pyproject.toml                # Metadatos del paquete (name = "pkg-asiscfg")
 ├── requirements.txt              # Dependencias estándar de desarrollo
-├── requi32.txt                   # Dependencias fijadas para entornos Win32
 └── README.md                     # Documentación técnica completa
 ```
 
@@ -185,7 +216,7 @@ pkg-asiscfg/
 
 ## 📦 Requisitos Previos
 
-- **Python:** Versión `3.8` o superior (32-bit o 64-bit).
+- **Python:** Versión `3.8` o superior.
 - **Sistema Operativo:** Windows 7 / 8 / 10 / 11 / Windows Server (o Linux para la capa core sin GUI).
 - **Librerías Hermana:**
   - `pkg-i18n` (Internacionalización y traducciones)
@@ -231,7 +262,7 @@ python asiscfg.py --schema-file "..\PATH_TO_SCHEMA\config_schema.py" --config-fi
 1. Al iniciar por primera vez sobre un archivo sin contraseña configurada, la clave por defecto es: `admin`.
 2. Para entornos de producción (sin la bandera `--dev`), la herramienta requerirá ejecutarse como **Administrador** (elevación UAC de Windows).
 3. **Indicador de origen:** En el encabezado superior observará si el archivo se abrió como texto plano editable o cifrado total.
-4. **Guardado:** Dispone de los botones `📄 Grabar Editable` (modo plain híbrido) y `🔒 Grabar Encriptado` (modo cifrado total).
+4. **Guardado:** Dispone de botones dedicados para guardar en modo editable (plain) o cifrado total según corresponda.
 
 ---
 
@@ -240,44 +271,46 @@ python asiscfg.py --schema-file "..\PATH_TO_SCHEMA\config_schema.py" --config-fi
 ```python
 from asiscfg import load_config, save_config
 
-# 1. Cargar la configuración (detecta automáticamente si es plain o encrypted)
+# 1. Cargar la configuración (detecta automáticamente si es plain, fernet, aes256_gcm o chacha20)
 config = load_config(
     config_path="config.cfg",
     key_path="config.key"
 )
 
-# Conocer el formato de origen detectado ('plain' o 'encrypted')
-print("Formato de origen:", config.format_mode)
+# Conocer el formato de origen detectado ('plain', 'fernet', 'aes256_gcm', 'chacha20')
+print("Formato de origen detectado:", config.format_mode)
 
 # 2. Acceso a parámetros generales (No sensibles)
 app_name = config.valor("app.name", default="Mi Aplicacion")
-db_host = config.valor("database.host", default="127.0.0.1")
-db_port = config.valor("database.port", default=1433)
+db_host = config.valor("conexiones.host", default="127.0.0.1")
+db_port = config.valor("conexiones.port", default=1433)
 
 # 3. Acceso a contraseñas (Seguridad JIT)
-# NOTA: config.valor("database.password") retornaría "<pass_database.password>"
-db_pass = config.valorpass("database.password")
+# NOTA: config.valor("conexiones.password") retornaría "<pass_conexiones.password>"
+db_pass = config.valorpass("conexiones.password")
 
 # 4. Comparación atómica de contraseña sin exponer texto claro
-es_correcta = config.valorpass("database.password", valor_compara="secreto123")
+es_correcta = config.valorpass("conexiones.password", valor_compara="secreto123")
 
 # 5. Acceso a configuraciones de perfil (@profiles)
 perfil_activo = "01"
 emp_name = config.valor_profile(perfil_activo, "info.name")
-emp_pass = config.valorpass_profile(perfil_activo, "database.password")
+emp_pass = config.valorpass_profile(perfil_activo, "conexiones.password")
 
 # 6. Herencia en Cascada: Perfil -> Global -> Default
-host_efectivo = config.valor_parent("database.host", profile_code=perfil_activo)
-pass_efectivo = config.valorpass_parent("database.password", profile_code=perfil_activo)
+host_efectivo = config.valor_parent("conexiones.host", profile_code=perfil_activo)
+pass_efectivo = config.valorpass_parent("conexiones.password", profile_code=perfil_activo)
 
 # 7. Modificar valores y guardar
-config["database"]["host"] = "192.168.1.50"
+config["conexiones"]["host"] = "192.168.1.50"
 
-# Guardar en modo texto plano editable con claves cifradas (por defecto):
+# Guardar en modo texto plano híbrido (por defecto):
 save_config("config.cfg", "config.key", dict(config), format_mode="plain")
 
-# O guardar en modo totalmente encriptado:
-save_config("config.cfg", "config.key", dict(config), format_mode="encrypted")
+# O guardar en los distintos modos de cifrado total:
+# save_config("config.cfg", "config.key", dict(config), format_mode="fernet")
+# save_config("config.cfg", "config.key", dict(config), format_mode="aes256_gcm")
+# save_config("config.cfg", "config.key", dict(config), format_mode="chacha20")
 ```
 
 ---
@@ -289,9 +322,9 @@ El comando `python asiscfg.py` admite las siguientes opciones:
 | Parámetro | Tipo | Descripción |
 | :--- | :--- | :--- |
 | `--config-file` | `Ruta` | Ruta al archivo de configuración (por defecto: `config.enc`, admite cualquier extensión como `.json`, `.cfg`, etc.). |
-| `--key-file` | `Ruta` | Ruta al archivo de clave maestra Fernet (por defecto: `secret.key`). |
+| `--key-file` | `Ruta` | Ruta al archivo de clave maestra (por defecto: `secret.key`). |
 | `--schema-file` | `Ruta` | Ruta al archivo `.py` que define `DEFAULT_CONFIG` / esquema. |
-| `--format-mode` | `String` | Modo de guardado para operaciones CLI: `'plain'` (por defecto) o `'encrypted'`. |
+| `--format-mode` | `String` | Modo de guardado para operaciones CLI: `'plain'` (por defecto), `'fernet'`, `'aes256_gcm'`, `'chacha20'`. |
 | `--theme` | `String` | Modo de apariencia visual: `'dark'` (por defecto), `'light'` o `'system'`. |
 | `--dev` | `Flag` | **Modo desarrollo:** Omite la validación obligatoria de privilegios de Administrador (UAC). |
 | `--app` | `Flag` | Permite la edición en la interfaz de los parámetros de la sección `app`. |
@@ -311,12 +344,12 @@ La clase `ConfigDict` hereda de `dict` e incorpora métodos especializados de se
 | :--- | :--- | :--- |
 | `valor(key_path, default=None)` | No-Password | Retorna el valor en texto claro. |
 | `valor(key_path, default=None)` | Password (`is_password: True`) | Retorna la máscara `<pass_{key_path}>`. |
-| `valorpass(key_path, default="", valor_compara=None)` | Password (`is_password: True`) | Si `valor_compara` es `None`, descifra JIT y retorna el texto claro. Si se pasa `valor_compara`, retorna booleano (`True`/`False`). |
+| `valorpass(key_path, default="", valor_compara=None)` | Password (`is_password: True`) | Si `valor_compara` es `None`, descifra JIT y retorna el texto claro (o `""` si es nulo). Si se pasa `valor_compara`, retorna booleano (`True`/`False`). |
 | `valorpass(key_path, default="", valor_compara=None)` | No-Password | Retorna la máscara `<var_{key_path}>`. |
-| `valor_profile(profile, key_path, default=None)` | No-Password / Password | Mismo comportamiento que `valor()`, contextualizado al perfil en `@profiles.<profile>`. |
-| `valorpass_profile(profile, key_path, ...)` | No-Password / Password | Mismo comportamiento que `valorpass()`, contextualizado al perfil en `@profiles.<profile>`. |
-| `valor_parent(key_path, profile="", default="", key_path_parent="")` | No-Password / Password | Resuelve en cascada: Perfil ➔ Global ➔ Default. Enmascara campos de contraseña. |
-| `valorpass_parent(key_path, profile="", default="", key_path_parent="", ...)` | No-Password / Password | Resuelve en cascada y descifra JIT campos de contraseña. |
+| `valor_profile(profile_code, key_path, default=None)` | No-Password / Password | Mismo comportamiento que `valor()`, contextualizado al perfil en `@profiles.<profile_code>`. |
+| `valorpass_profile(profile_code, key_path, ...)` | No-Password / Password | Mismo comportamiento que `valorpass()`, contextualizado al perfil en `@profiles.<profile_code>`. |
+| `valor_parent(key_path, profile_code="", default="", key_path_parent="")` | No-Password / Password | Resuelve en cascada: Perfil ➔ Global ➔ Default. Enmascara campos de contraseña. |
+| `valorpass_parent(key_path, profile_code="", default="", key_path_parent="", ...)` | No-Password / Password | Resuelve en cascada y descifra JIT campos de contraseña. |
 
 ### Gestión de Perfiles
 - `cfg.get_profiles()`: Retorna la lista de códigos de perfil registrados bajo `@profiles` (ej. `["01", "02"]`).
@@ -328,78 +361,214 @@ La clase `ConfigDict` hereda de `dict` e incorpora métodos especializados de se
 
 ## 📝 Definición de Esquemas (`config_schema.py`)
 
-### Esquema Estándar y Metadatos de Campo
+### Ejemplo Completo de `config_schema.py`
+
+A continuación se presenta el archivo de esquema canónico completo que centraliza la definición de metadatos, parámetros generales, rutas globales, conexiones multi-motor y configuración multi-empresa:
 
 ```python
-DEFAULT_CONFIG = {
+# -*- coding: utf-8 -*-
+from typing import Dict, Any
+from asisdb import get_supported_drivers, LITERAL
+from asiscfg import SCHEMA_KEY
+
+"""
+Esquema de Configuración para configurar un entorno FoxPro y otro SQL.
+Centraliza servidor SQL, credenciales y plantillas con comodines {empresa_destino} y {empresa_origen}.
+"""
+DEFAULT_CONFIG: Dict[str, Any] = {
+    # ── 1. Metadatos de la Aplicación ──
     "app": {
-        "name": {"default": "ASISNET CONFIGURADOR", "type": "str", "description": "t18n#Nombre de la aplicación"},
-        "version": {"default": "1.0.0", "type": "str", "description": "t18n#Versión del sistema"}
+        "name": {"default": "ASISNET - Asientos Contables", "description": "t18n#Nombre del sistema de sincronización."},
+        "version": {"default": "v1.0.0", "description": "t18n#Versión del aplicativo."},
+        "client": {"default": "ASISNET", "description": "t18n#Cliente o empresa propietaria."}
     },
-    "database": {
-        "engine": {
-            "default": "mssql",
-            "type": "enum",
-            "options": ["mssql", "postgresql", "mysql", "sqlite", "foxpro"],
-            "description": "t18n#Motor de base de datos"
-        },
-        "host": {"default": "127.0.0.1", "type": "str", "description": "t18n#Servidor o Host"},
-        "port": {"default": 1433, "type": "int", "min": 1, "max": 65535, "description": "t18n#Puerto TCP"},
-        "user": {"default": "sa", "type": "str", "description": "t18n#Usuario de BD"},
-        "password": {"default": "", "type": "str", "is_password": True, "description": "t18n#Contraseña de BD"}
-    }
-}
-```
 
-> [!TIP]
-> **Internacionalización con prefijo `t18n#`:**
-> Al prefijar la descripción con `t18n#` (ej. `"description": "t18n#Nombre de la aplicación"`), `asiscfg` traduce automáticamente el texto al idioma activo usando `pkg-i18n`.
-
----
-
-### Soporte Multi-Perfil (`_template`)
-
-```python
-DEFAULT_CONFIG = {
+    # ── 2. Parámetros Generales ──
     "general": {
-        "host": {"default": "192.168.1.100", "description": "Servidor Principal"},
-        "user": {"default": "sa", "description": "Usuario"}
+        "active_language": {"default": "es", "description": "t18n#Código del idioma activo (ej. es)."},
+        "log_filename_pattern": {"default": "{TIMESTAMP}.log", "description": "t18n#Patrón de nombres de logs."},
+        "backup_config_pattern": {"default": "{TIMESTAMP}-{BASENAME}{EXT}.bak", "description": "t18n#Patrón de nombres de backups de configuración."},
+        "monto_tolerance": {"default": "0.01", "description": "t18n#Tolerancia para la cuadratura contable."},
     },
+
+    # ── 3. Rutas Globales ──
+    "paths": {
+        "resources": {"default": "resources", "description": "t18n#Directorio de recursos e interfaz."},
+        "languages": {"default": "resources/languages", "description": "t18n#Directorio de idiomas e i18n."},
+        "logs": {"default": "logs", "description": "t18n#Directorio de almacenamiento de logs."},
+        "asientos_ini": {"default": "asientos.ini", "description": "t18n#Ruta al archivo asientos.ini del sistema."},
+        "schema_campos_path": {"default": "campos.json", "description": "t18n#Ruta al archivo con campos extras/modificados/excluidos."},
+        "backup_config_path": {"default": "{ROOT}/backups", "description": "t18n#Ruta al archivo de respaldo de la configuración."}
+    },
+
+    # ── 4. Conexiones Fox / SQL Globales ──
+    "conexiones": {
+        # Plantilla global FoxPro (acepta comodín {empresa_origen})
+        "fox_path": {
+            "default": "\\\\SRV\\ORBIS\\ORBISDAT\\CONDAT{empresa_origen}", 
+            "description": "t18n#Plantilla de ruta FoxPro/SA (soporta comodín {empresa_origen})."
+        },
+        # Motor y credenciales SQL Globales
+        "driver": {
+            "default": "mssql", 
+            "description": "t18n#Motor de Base de Datos SQL global.", 
+            "type": "enum", 
+            "options": get_supported_drivers()
+        },
+        "host": {"default": "SQLSERVER", "description": "t18n#Servidor SQL principal para todas las empresas."},
+        "port": {"default": "", "description": "t18n#Puerto de escucha TCP/IP SQL (vacío para default del driver)."},
+        "user": {"default": "sa", "description": "t18n#Usuario SQL principal."},
+        "password": {"default": "", "description": "t18n#Contraseña SQL principal.", "is_password": True},
+        # Plantilla de base de datos (acepta comodín {empresa_destino})
+        "database": {
+            "default": "DAT{empresa_destino}DBSQL", 
+            "description": "t18n#Plantilla de Base de Datos SQL (soporta comodín {empresa_destino})."
+        },
+        "odbc_driver": {"default": "", "description": "t18n#Driver ODBC a utilizar (opcional)."},
+        "sql_driver_autodetect": {"default": "False", "description": "t18n#Autodetectar Driver ODBC instalado."},
+        "tds_version": {"default": "", "description": "t18n#Versión del protocolo TDS para pymssql (7.2, 7.4, etc)."}
+    },
+
+    # ── 5. Configuración Multi-Empresa ──
     "@profiles": {
         "_template": {
+            "info": {
+                "name": {"default": "", "description": "t18n#Razón Social de la empresa."},
+                "empresa_origen": {"default": "01", "description": "t18n#Código de Empresa Origen (FoxPro)."},
+                "empresa_destino": {"default": "01", "description": "t18n#Código de Empresa Destino (SQL Server)."}
+            },
             "conexiones": {
-                "database": {"default": "DAT[empresa_destino]SRVSQL", "description": "Base de datos"},
-                "btn_probar": {
+                "fox_path": {"default": "", "description": "t18n#Ruta FoxPro específica (dejar vacío para heredar de conexiones.fox_path)."},
+                "btn_test_foxpro": {
                     "type": "test_connection",
-                    "description": "🔌 Probar Conexión",
+                    "description": "t18n#📁 Probar Conexión FoxPro",
                     "mapping": {
-                        "driver": "conexiones.driver",
-                        "host": ["conexiones.host", "general.host"],
-                        "database": "conexiones.database",
-                        "user": ["conexiones.user", "general.user"],
-                        "password": ["conexiones.password", "general.password"],
+                        "driver": LITERAL("foxpro"),
+                        "path": ["fox_path", "conexiones.fox_path"],
+                        "empresa_origen": "info.empresa_origen",
                         "empresa_destino": "info.empresa_destino"
+                    }
+                },
+                # Sobreescritura específica por empresa (vacío hereda de conexiones global)
+                "driver": {
+                    "default": "", 
+                    "description": "t18n#Motor SQL específico (dejar vacío para heredar de conexiones.driver).", 
+                    "type": "enum", 
+                    "options": ["", *get_supported_drivers()]
+                },
+                "host": {"default": "", "description": "t18n#Servidor SQL específico (dejar vacío para heredar de conexiones.host)."},
+                "port": {"default": "", "description": "t18n#Puerto de escucha TCP/IP SQL (dejar vacío para heredar de conexiones.port)."},
+                "user": {"default": "", "description": "t18n#Usuario SQL específico (dejar vacío para heredar de conexiones.user)."},
+                "password": {"default": "", "description": "t18n#Contraseña específica (dejar vacío para heredar de conexiones.password).", "is_password": True},
+                "database": {"default": "", "description": "t18n#Base de datos específica (dejar vacío para heredar de conexiones.database)."},
+                "odbc_driver": {"default": "", "description": "t18n#Driver ODBC específico (dejar vacío para heredar de conexiones.odbc_driver)."},
+                "sql_driver_autodetect": {
+                    "default": "", 
+                    "description": "t18n#Autodetectar Driver ODBC instalado (dejar vacío para heredar de conexiones.sql_driver_autodetect)." 
+                },
+                "tds_version": {"default": "", "description": "t18n#Versión del protocolo TDS (dejar vacío para heredar de conexiones.tds_version)."},
+                "btn_test_sql": {
+                    "type": "test_connection",
+                    "description": "t18n#🔌 Probar Conexión SQL Empresa",
+                    "mapping": {
+                        "driver": ["driver", "conexiones.driver"],
+                        "host": ["host", "conexiones.host"],
+                        "port": ["port", "conexiones.port"],
+                        "database": ["database", "conexiones.database"],
+                        "user": ["user", "conexiones.user"],
+                        "password": ["password", "conexiones.password"],
+                        "odbc_driver": ["odbc_driver", "conexiones.odbc_driver"],
+                        "empresa_destino": "info.empresa_destino",
+                        "empresa_origen": "info.empresa_origen",
+                        "sql_driver_autodetect": ["sql_driver_autodetect", "conexiones.sql_driver_autodetect"],
+                        "tds_version": ["tds_version", "conexiones.tds_version"]
                     }
                 }
             }
         },
+
+        # Empresa inicial por defecto
         "01": {
+            "info": {
+                "name": "",
+                "empresa_origen": "",
+                "empresa_destino": ""
+            },
             "conexiones": {
-                "database": "DAT01SRVSQL"
+                "fox_path": "",
+                "driver": "",
+                "host": "",
+                "port": "",
+                "user": "",
+                "password": "",
+                "database": "",
+                "odbc_driver": "",
+                "sql_driver_autodetect": "",
+                "tds_version": ""
             }
         }
+    },
+
+    # ── Política de Respaldos de Configuración ──
+    "_backup": {
+        "enabled": True,
+        "method": "timestamp",
+        "target_dir": SCHEMA_KEY("paths.backup_config_path"),
+        "filename_pattern": SCHEMA_KEY("general.backup_config_pattern"),
+        "max_backups": 20
     }
 }
 ```
+
+---
+
+### Desglose y Estructura del Esquema
+
+El esquema se divide en 6 bloques fundamentales:
+
+1. **Metadatos de la Aplicación (`app`):**
+   - Identifica el nombre (`name`), versión (`version`) y cliente/propietario (`client`).
+   - Por defecto, estos parámetros quedan bloqueados en la GUI para evitar alteraciones accidentales del usuario final, salvo que se ejecute con la bandera `--app`.
+
+2. **Parámetros Generales (`general`):**
+   - Idioma activo (`active_language`) para traducciones automáticas con `pkg-i18n`.
+   - Patrones de nombrado de logs y respaldos (`{TIMESTAMP}.log`, `{TIMESTAMP}-{BASENAME}{EXT}.bak`).
+   - Tolerancias numéricas de negocio (`monto_tolerance`).
+
+3. **Rutas Globales (`paths`):**
+   - Centraliza carpetas de recursos, logs e idiomas.
+   - Admite el comodín `{ROOT}` que se expande dinámicamente al directorio raíz de la aplicación anfitriona.
+
+4. **Conexiones Fox / SQL Globales (`conexiones`):**
+   - Soporte para plantillas con comodines (`\\\\SRV\\ORBISDAT\\CONDAT{empresa_origen}`, `DAT{empresa_destino}DBSQL`).
+   - Integración con `asisdb.get_supported_drivers()` para enumerar dinámicamente los motores disponibles (`mssql`, `postgresql`, `mysql`, `sqlite`, `foxpro`).
+   - Campos de contraseña protegidos (`"is_password": True`).
+
+5. **Configuración Multi-Empresa (`@profiles`):**
+   - **Plantilla base `_template`:** Define la estructura que heredará cualquier nueva empresa agregada desde la GUI.
+   - **Herencia en cascada:** Los campos dejados en blanco en una empresa heredan automáticamente el valor global de la sección `conexiones`.
+   - **Botones de prueba interactivos:** Prueban la conectividad de forma independiente para FoxPro y SQL Server.
+
+6. **Política de Respaldos (`_backup`):**
+   - Vinculación reactiva mediante `SCHEMA_KEY("paths.backup_config_path")` y `SCHEMA_KEY("general.backup_config_pattern")`.
+
+> [!TIP]
+> **Internacionalización con prefijo `t18n#`:**
+> Al prefijar la descripción con `t18n#` (ej. `"description": "t18n#Nombre del sistema"`), `asiscfg` traduce automáticamente el texto al idioma activo usando `pkg-i18n`.
 
 ---
 
 ### Botones de Prueba de Conexión (`test_connection`)
 
 Permiten ejecutar pruebas de conectividad directamente desde la interfaz mediante `"type": "test_connection"` y un `"mapping"` de parámetros:
-- **Prioridad en cascada:** `["campo_local", "general.campo_global", LITERAL("mssql")]`.
-- **Comodines dinámicos:** Interpolación automática de `[empresa_destino]`, `[empresa_origen]`, `{TIMESTAMP}`, etc.
-- **Aislamiento:** Los botones se definen únicamente donde aplican y nunca se persisten en el archivo final de configuración.
+- **`LITERAL(valor)`:** Asigna un valor constante directo al parámetro de conexión (ej. `LITERAL("foxpro")`).
+- **Listas de resolución en cascada:** Evalúan la primera clave disponible con valor no vacío:
+  ```python
+  "host": ["host", "conexiones.host"]
+  ```
+  *(Busca primero en `conexiones.host` de la empresa activa; si está vacío, hereda del `conexiones.host` global).*
+- **Comodines dinámicos:** Interpolación automática de `{empresa_destino}` y `{empresa_origen}` en rutas FoxPro y nombres de bases de datos SQL.
+- **Aislamiento:** Los botones se definen únicamente donde aplican en la GUI y nunca se persisten en el archivo JSON/cifrado final.
 
 ---
 
@@ -408,11 +577,11 @@ Permiten ejecutar pruebas de conectividad directamente desde la interfaz mediant
 ```python
 DEFAULT_CONFIG = {
     "_backup": {
-        "enabled": True,                           # Activar/desactivar respaldos automáticos
-        "method": "timestamp",                     # "timestamp" (fechado rotativo), "simple" (.bak fijo), "none"
-        "target_dir": "{ROOT}/backups",            # Ruta fija con {ROOT} o clave puente: SCHEMA_KEY("paths.path_backup")
-        "filename_pattern": "{TIMESTAMP} - {BASENAME}{EXT}.bak",  # Patrón de nombrado con comodines
-        "max_backups": 20                          # Límite de retención histórica (0 = ilimitado)
+        "enabled": True,                                        # Activar/desactivar respaldos automáticos
+        "method": "timestamp",                                  # "timestamp" (fechado rotativo), "simple" (.bak fijo), "none"
+        "target_dir": SCHEMA_KEY("paths.backup_config_path"),    # Ruta vinculada al esquema o ruta fija con {ROOT}
+        "filename_pattern": SCHEMA_KEY("general.backup_config_pattern"), # Patrón de nombrado con comodines
+        "max_backups": 20                                       # Límite de retención histórica (0 = ilimitado)
     }
 }
 ```
@@ -421,22 +590,12 @@ DEFAULT_CONFIG = {
 
 ## 📦 Compilación a Ejecutable Standalone (PyInstaller)
 
-### Compilación 64-bit:
+Para generar el ejecutable autocontenido de la aplicación:
+
 ```powershell
 python .\build_exe.py
 ```
 *(O ejecutando `.\build_exe.ps1`)*.
-
-### Compilación 32-bit (Windows 7 / x86):
-Para compilar en entornos Windows de 32 bits (Python 3.8 x86):
-1. Instalar las dependencias de [requi32.txt](file:///requi32.txt):
-   ```cmd
-   pip install -r requi32.txt
-   ```
-2. Ejecutar el script batch de compilación:
-   ```cmd
-   build32.bat
-   ```
 
 El ejecutable resultante se genera en `dist/asiscfg/asiscfg.exe`.
 
@@ -446,7 +605,7 @@ El ejecutable resultante se genera en `dist/asiscfg/asiscfg.exe`.
 
 > [!WARNING]
 > **Gestión de la Clave Maestra (`secret.key` / `config.key`):**
-> 1. Contiene la clave criptográfica Fernet necesaria para descifrar la configuración o los campos individuales `ENC:...`.
+> 1. Contiene la clave criptográfica (32 bytes / 44 caracteres Base64 urlsafe) necesaria para descifrar la configuración o los campos individuales `ENC:...`.
 > 2. **NUNCA** suba archivos de clave a repositorios de código públicos o de control de versiones.
 > 3. Si se extravía o borra, las contraseñas y configuraciones cifradas **no se podrán recuperar** sin un respaldo previo en bóveda institucional.
 > 4. En entornos de producción, asigne permisos NTFS de solo lectura para el usuario de servicio correspondiente.
