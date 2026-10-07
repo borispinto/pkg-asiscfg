@@ -1,0 +1,30 @@
+
+# ==============================================================================
+# Dependencias Locales (Modo Editable para Desarrollo)
+# ==============================================================================
+-e ../pkg-i18n
+-e ../pkg-asisdb
+
+# ==============================================================================
+# Alternativas de Instalación (Comentadas para desarrollo local)
+# ==============================================================================
+# Vía GitHub:
+# pkg-i18n @ git+https://github.com/borispinto/pkg-i18n.git
+# pkg-asisdb @ git+https://github.com/borispinto/pkg-asisdb.git
+
+# Vía PyPI / Repositorio Privado:
+# pkg-i18n>=1.0.0
+# pkg-asisdb>=1.0.0
+
+# ==============================================================================
+# Dependencias del Paquete y Herramientas
+# ==============================================================================
+cryptography>=3.0
+customtkinter>=5.2.0
+darkdetect>=0.8.0
+Pillow>=9.0.0
+SQLAlchemy>=2.0.0
+pymssql>=2.2.8
+dbfread>=2.0.7
+pyinstaller>=5.0.0
+

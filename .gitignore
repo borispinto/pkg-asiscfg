@@ -1,0 +1,99 @@
+# ==========================================
+# Python Bytecode & Cache
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ==========================================
+# Entornos Virtuales
+# ==========================================
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# ==========================================
+# Distribución, Empaquetado y Builds
+# ==========================================
+build/
+dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ==========================================
+# PyInstaller
+# ==========================================
+*.manifest
+*.spec
+
+# ==========================================
+# Pruebas, Cobertura y Scratch
+# ==========================================
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+htmlcov/
+.tests/
+
+# ==========================================
+# Archivos de Configuración Sensible y Cifrado
+# ==========================================
+*.key
+*.enc
+secret.key
+config.enc
+*.db
+*.sqlite
+*.sqlite3
+
+# ==========================================
+# Documentacion para desqarrollo
+# ==========================================
+chat_historico/
+PRUEB*.*
+Doc_inicial
+VS*.bat
+
+# ==========================================
+# Logs y Archivos Temporales
+# ==========================================
+*.log
+*.tmp
+*.bak
+*.swp
+
+# ==========================================
+# IDEs y Editores de Código
+# ==========================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ==========================================
+# Sistema Operativo
+# ==========================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
