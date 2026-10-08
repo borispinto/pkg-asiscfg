@@ -445,7 +445,7 @@ class ConfigDict(dict):
             default=default
         )
 
-    def valor_profile(self, profile_code: str, key_path: str, default: Any = None, debug: bool = False) -> Any:
+    def valor_profile(self, key_path: str, profile_code: str, default: Any = None, debug: bool = False) -> Any:
         """
         Acceso directo a configuraciones de un perfil específico.
         Si el parámetro es de tipo contraseña, retorna la máscara '<pass_{key_path}>'.
@@ -496,8 +496,8 @@ class ConfigDict(dict):
 
     def valorpass_profile(
         self,
-        profile_code: str,
         key_path: str,
+        profile_code: str,
         default: Any = "",
         valor_compara: Any = None
     ) -> Any:
