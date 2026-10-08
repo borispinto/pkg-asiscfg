@@ -272,6 +272,9 @@ python asiscfg.py --schema-file "..\PATH_TO_SCHEMA\config_schema.py" --config-fi
 **2. Pestaña de Parámetros Generales y Rutas (`general` / `paths`):**
 ![Pestaña de Parámetros Generales](README.IMG/img_general.jpg)
 
+**3. Pestaña de Conexiones Globales (`conexiones`):**
+![Pestaña de Conexiones Globales](README.IMG/img_conexiones.jpg)
+
 
 ---
 
@@ -399,9 +402,9 @@ Centraliza servidor SQL, credenciales y plantillas con comodines {empresa_destin
 DEFAULT_CONFIG: Dict[str, Any] = {
     # ── 1. Metadatos de la Aplicación ──
     "app": {
-        "name": {"default": "ASISNET - Asientos Contables", "description": "t18n#Nombre del sistema de sincronización."},
+        "name": {"default": "DEMO - Asientos Contables", "description": "t18n#Nombre del sistema de sincronización."},
         "version": {"default": "v1.0.0", "description": "t18n#Versión del aplicativo."},
-        "client": {"default": "ASISNET", "description": "t18n#Cliente o empresa propietaria."}
+        "client": {"default": "DEMO", "description": "t18n#Cliente o empresa propietaria."}
     },
 
     # ── 2. Parámetros Generales ──
@@ -426,7 +429,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "conexiones": {
         # Plantilla global FoxPro (acepta comodín {empresa_origen})
         "fox_path": {
-            "default": "\\\\SRV\\ORBIS\\ORBISDAT\\CONDAT{empresa_origen}", 
+            "default": "\\\\SRV\\CONDAT{empresa_origen}", 
             "description": "t18n#Plantilla de ruta FoxPro/SA (soporta comodín {empresa_origen})."
         },
         # Motor y credenciales SQL Globales
@@ -592,8 +595,17 @@ Permiten ejecutar pruebas de conectividad directamente desde la interfaz mediant
 - **Comodines dinámicos:** Interpolación automática de variables definidas en el perfil (en este ejemplo, `{empresa_destino}` y `{empresa_origen}`) en rutas FoxPro y nombres de bases de datos SQL.
 - **Aislamiento:** Los botones se definen únicamente donde aplican en la GUI y nunca se persisten en el archivo JSON/cifrado final.
 
-#### Captura de Conexiones Globales y Prueba de Servidor:
-![Conexiones Globales y Prueba](README.IMG/img_conexiones.jpg)
+#### Capturas de Prueba de Conexión en Perfiles:
+
+**1. Pestaña de Conexiones por Empresa con Botones de Prueba:**
+![Conexiones del Perfil con Botones de Prueba](README.IMG/img_perfil_conexiones.jpg)
+
+**2. Modal de Prueba Exitosa - FoxPro / Tablas DBF:**
+![Prueba Exitosa FoxPro](README.IMG/img_conection_fox_ok.jpg)
+
+**3. Modal de Prueba Exitosa - SQL Server:**
+![Prueba Exitosa SQL Server](README.IMG/img_conection_sql_ok.jpg)
+
 
 
 ---

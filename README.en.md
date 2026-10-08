@@ -272,6 +272,9 @@ python asiscfg.py --schema-file "..\PATH_TO_SCHEMA\config_schema.py" --config-fi
 **2. General Parameters and Paths Tab (`general` / `paths`):**
 ![General Parameters Tab](README.IMG/img_general.jpg)
 
+**3. Global Connections Tab (`conexiones`):**
+![Global Connections Tab](README.IMG/img_conexiones.jpg)
+
 
 ---
 
@@ -399,9 +402,9 @@ Centraliza servidor SQL, credenciales y plantillas con comodines {empresa_destin
 DEFAULT_CONFIG: Dict[str, Any] = {
     # ── 1. Metadatos de la Aplicación ──
     "app": {
-        "name": {"default": "ASISNET - Asientos Contables", "description": "t18n#Nombre del sistema de sincronización."},
+        "name": {"default": "DEMO - Asientos Contables", "description": "t18n#Nombre del sistema de sincronización."},
         "version": {"default": "v1.0.0", "description": "t18n#Versión del aplicativo."},
-        "client": {"default": "ASISNET", "description": "t18n#Cliente o empresa propietaria."}
+        "client": {"default": "DEMO", "description": "t18n#Cliente o empresa propietaria."}
     },
 
     # ── 2. Parámetros Generales ──
@@ -426,7 +429,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "conexiones": {
         # Plantilla global FoxPro (acepta comodín {empresa_origen})
         "fox_path": {
-            "default": "\\\\SRV\\ORBIS\\ORBISDAT\\CONDAT{empresa_origen}", 
+            "default": "\\\\SRV\\CONDAT{empresa_origen}", 
             "description": "t18n#Plantilla de ruta FoxPro/SA (soporta comodín {empresa_origen})."
         },
         # Motor y credenciales SQL Globales
@@ -592,8 +595,17 @@ Allow testing database connectivity directly from the UI with `"type": "test_con
 - **Dynamic Placeholders:** Automatic interpolation of variables defined in the profile (in this example, `{empresa_destino}` and `{empresa_origen}`) in FoxPro paths and SQL database names.
 - **Isolation:** Test buttons are UI-only actions and are never written to the final saved configuration.
 
-#### Global Connections and Server Test Screenshot:
-![Global Connections and Server Test](README.IMG/img_conexiones.jpg)
+#### Profile Connection Test Screenshots:
+
+**1. Company Specific Connection Settings with Test Buttons:**
+![Profile Connection Settings with Test Buttons](README.IMG/img_perfil_conexiones.jpg)
+
+**2. Successful Connection Modal - FoxPro / DBF Tables:**
+![FoxPro Connection Successful](README.IMG/img_conection_fox_ok.jpg)
+
+**3. Successful Connection Modal - SQL Server:**
+![SQL Server Connection Successful](README.IMG/img_conection_sql_ok.jpg)
+
 
 
 ---
