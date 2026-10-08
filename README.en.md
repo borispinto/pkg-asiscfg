@@ -264,6 +264,15 @@ python asiscfg.py --schema-file "..\PATH_TO_SCHEMA\config_schema.py" --config-fi
 3. **Read Origin Header:** The top bar informs whether the file loaded in plain editable or fully encrypted mode.
 4. **Saving:** Offers dedicated buttons to save in plain editable or total encrypted mode.
 
+#### Interface Screenshots:
+
+**1. Application Metadata Tab (`app` enabled with `--app`):**
+![Application Metadata Tab](README.IMG/img_app.jpg)
+
+**2. General Parameters and Paths Tab (`general` / `paths`):**
+![General Parameters Tab](README.IMG/img_general.jpg)
+
+
 ---
 
 ### 2. Modular Python Library Usage
@@ -356,6 +365,18 @@ The `ConfigDict` class extends `dict` with specialized security and inheritance 
 - `cfg.has_profiles()`: Returns `True` if active configuration has profiles.
 - `cfg.get_profile_config(profile_code)`: Returns full profile dictionary.
 - `cfg.get_unencrypted_passwords()`: Returns list of `(key, value)` tuples of unencrypted password fields detected on load.
+
+#### Profile Management Screenshots:
+
+**1. Dynamic & Alphabetical Profile / Company Selector:**
+![Profile Selector](README.IMG/img_perfil_combo.jpg)
+
+**2. Profile Information (Company Name & Codes):**
+![Profile Information](README.IMG/img_perfil_info.jpg)
+
+**3. Company Specific Connection Settings & Connectivity Test:**
+![Profile Connection Settings](README.IMG/img_perfil_conexiones.jpg)
+
 
 ---
 
@@ -570,6 +591,10 @@ Allow testing database connectivity directly from the UI with `"type": "test_con
   *(Checks profile-specific `conexiones.host` first; falls back to global `conexiones.host` if empty).*
 - **Dynamic Placeholders:** Automatic interpolation of variables defined in the profile (in this example, `{empresa_destino}` and `{empresa_origen}`) in FoxPro paths and SQL database names.
 - **Isolation:** Test buttons are UI-only actions and are never written to the final saved configuration.
+
+#### Global Connections and Server Test Screenshot:
+![Global Connections and Server Test](README.IMG/img_conexiones.jpg)
+
 
 ---
 
