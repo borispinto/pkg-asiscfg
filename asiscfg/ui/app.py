@@ -430,7 +430,26 @@ class ConfigApp(ctk.CTk):
                     display_list.append(f"{code} - {desc}")
                 else:
                     display_list.append(code)
+        display_list.sort(key=lambda s: str(s).lower())
         return display_list
+
+    def _update_profile_combo(self, target_profile: Optional[str] = None):
+        """Actualiza las opciones y el valor seleccionado en el combo selector de perfiles."""
+        if not self.combo_profile:
+            return
+        display_list = self._get_profile_display_list()
+        self.combo_profile.configure(values=display_list if display_list else ["-"])
+        prof = target_profile or self.active_profile
+        if prof:
+            for item in display_list:
+                if item == prof or item.startswith(f"{prof} - "):
+                    self.combo_profile.set(item)
+                    break
+        elif display_list:
+            self.combo_profile.set(display_list[0])
+        else:
+            self.combo_profile.set("-")
+
 
 
     def _build_menu_bar(self):
@@ -590,21 +609,15 @@ class ConfigApp(ctk.CTk):
             )
             self.lbl_profile_sel.pack(side="left", padx=(12, 6), pady=8)
 
-            display_list = self._get_profile_display_list()
             self.combo_profile = ctk.CTkOptionMenu(
                 self.profile_bar_frame,
-                values=display_list if display_list else ["-"],
+                values=["-"],
                 command=self._on_profile_selected,
                 width=240,
                 height=32
             )
             self.combo_profile.pack(side="left", padx=6, pady=8)
-
-            if self.active_profile:
-                for item in display_list:
-                    if item == self.active_profile or item.startswith(f"{self.active_profile} - "):
-                        self.combo_profile.set(item)
-                        break
+            self._update_profile_combo()
 
             self.btn_add_prof = ctk.CTkButton(
                 self.profile_bar_frame,
@@ -1418,13 +1431,7 @@ class ConfigApp(ctk.CTk):
             new_prof["info"] = info_dict
             self.working_config.setdefault(SECTION_PROFILES, {})[code] = new_prof
             self.active_profile = code
-
-            display_list = self._get_profile_display_list()
-            self.combo_profile.configure(values=display_list)
-            for item in display_list:
-                if item == code or item.startswith(f"{code} - "):
-                    self.combo_profile.set(item)
-                    break
+            self._update_profile_combo(target_profile=code)
 
             self.populate_tabs()
             self._on_tab_change()
@@ -1448,13 +1455,7 @@ class ConfigApp(ctk.CTk):
             prof_data = self.working_config[SECTION_PROFILES].pop(old_code)
             self.working_config[SECTION_PROFILES][new_code] = prof_data
             self.active_profile = new_code
-
-            display_list = self._get_profile_display_list()
-            self.combo_profile.configure(values=display_list)
-            for item in display_list:
-                if item == new_code or item.startswith(f"{new_code} - "):
-                    self.combo_profile.set(item)
-                    break
+            self._update_profile_combo(target_profile=new_code)
 
             self.update_profile_values(new_code)
             self._on_tab_change()
@@ -1491,13 +1492,7 @@ class ConfigApp(ctk.CTk):
             del profiles_dict[deleted_code]
             remaining = [k for k in profiles_dict.keys() if not is_schema_directive(k)]
             self.active_profile = remaining[0]
-
-            display_list = self._get_profile_display_list()
-            self.combo_profile.configure(values=display_list)
-            for item in display_list:
-                if item == self.active_profile or item.startswith(f"{self.active_profile} - "):
-                    self.combo_profile.set(item)
-                    break
+            self._update_profile_combo(target_profile=self.active_profile)
 
 
             self.update_profile_values(self.active_profile)
@@ -1761,14 +1756,7 @@ class ConfigApp(ctk.CTk):
                     profiles_list = [k for k in self.working_config.get(SECTION_PROFILES, {}).keys() if not is_schema_directive(k)] if isinstance(self.working_config.get(SECTION_PROFILES), dict) else []
                     self.active_profile = profiles_list[0] if profiles_list else None
 
-                    if self.combo_profile:
-                        display_list = self._get_profile_display_list()
-                        self.combo_profile.configure(values=display_list if display_list else ["-"])
-                        if self.active_profile:
-                            for item in display_list:
-                                if item == self.active_profile or item.startswith(f"{self.active_profile} - "):
-                                    self.combo_profile.set(item)
-                                    break
+                    self._update_profile_combo()
                     self.populate_tabs()
                     self._on_tab_change()
                     log_audit_event("IMPORT_BACKUP", f"Respaldo importado desde '{src_path}'.")
@@ -1851,6 +1839,7 @@ class ConfigApp(ctk.CTk):
             self.initial_field_values.clear()
             self.populate_tabs()
             self._on_tab_change()
+            self._update_profile_combo()
             self._update_format_indicator()
 
             log_audit_event("SAVE_CONFIG", f"Configuración guardada en modo '{engine.mode_id}' en {self.config_file} (Respaldo: {backup_file}).")
@@ -1905,15 +1894,7 @@ class ConfigApp(ctk.CTk):
         profiles_list = [k for k in self.working_config.get(SECTION_PROFILES, {}).keys() if not is_schema_directive(k)] if isinstance(self.working_config.get(SECTION_PROFILES), dict) else []
         self.active_profile = profiles_list[0] if profiles_list else None
         
-        has_profs = SECTION_PROFILES in self.working_config and isinstance(self.working_config[SECTION_PROFILES], dict) and len(self.working_config[SECTION_PROFILES]) > 0
-        if self.combo_profile:
-            display_list = self._get_profile_display_list()
-            self.combo_profile.configure(values=display_list if display_list else ["-"])
-            if self.active_profile:
-                for item in display_list:
-                    if item == self.active_profile or item.startswith(f"{self.active_profile} - "):
-                        self.combo_profile.set(item)
-                        break
+        self._update_profile_combo()
 
         self.populate_tabs()
         self._on_tab_change()

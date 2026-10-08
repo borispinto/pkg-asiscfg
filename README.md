@@ -264,6 +264,15 @@ python asiscfg.py --schema-file "..\PATH_TO_SCHEMA\config_schema.py" --config-fi
 3. **Indicador de origen:** En el encabezado superior observará si el archivo se abrió como texto plano editable o cifrado total.
 4. **Guardado:** Dispone de botones dedicados para guardar en modo editable (plain) o cifrado total según corresponda.
 
+#### Capturas de la Interfaz:
+
+**1. Pestaña de Aplicación (`app` habilitada con `--app`):**
+![Pestaña de Metadatos de Aplicación](README.IMG/img_app.jpg)
+
+**2. Pestaña de Parámetros Generales y Rutas (`general` / `paths`):**
+![Pestaña de Parámetros Generales](README.IMG/img_general.jpg)
+
+
 ---
 
 ### 2. Uso como Librería Modular en Python
@@ -356,6 +365,18 @@ La clase `ConfigDict` hereda de `dict` e incorpora métodos especializados de se
 - `cfg.has_profiles()`: Retorna `True` si existen perfiles configurados.
 - `cfg.get_profile_config(profile_code)`: Retorna el diccionario completo del perfil solicitado.
 - `cfg.get_unencrypted_passwords()`: Retorna la lista de tuplas `(campo, valor)` de contraseñas detectadas sin cifrar al cargar.
+
+#### Capturas de Gestión de Perfiles:
+
+**1. Selector Dinámico y Alfabético de Perfiles / Empresas:**
+![Selector de Perfiles](README.IMG/img_perfil_combo.jpg)
+
+**2. Información del Perfil (Razón Social y Códigos):**
+![Información del Perfil](README.IMG/img_perfil_info.jpg)
+
+**3. Conexiones Específicas de Empresa y Prueba de Conectividad:**
+![Conexiones del Perfil](README.IMG/img_perfil_conexiones.jpg)
+
 
 ---
 
@@ -570,6 +591,10 @@ Permiten ejecutar pruebas de conectividad directamente desde la interfaz mediant
   *(Busca primero en `conexiones.host` del perfil activo; si está vacío, hereda del `conexiones.host` global).*
 - **Comodines dinámicos:** Interpolación automática de variables definidas en el perfil (en este ejemplo, `{empresa_destino}` y `{empresa_origen}`) en rutas FoxPro y nombres de bases de datos SQL.
 - **Aislamiento:** Los botones se definen únicamente donde aplican en la GUI y nunca se persisten en el archivo JSON/cifrado final.
+
+#### Captura de Conexiones Globales y Prueba de Servidor:
+![Conexiones Globales y Prueba](README.IMG/img_conexiones.jpg)
+
 
 ---
 

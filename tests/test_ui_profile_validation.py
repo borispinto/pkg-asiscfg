@@ -401,7 +401,45 @@ DEFAULT_CONFIG = {
         finally:
             app.destroy()
 
+    def test_profile_combo_alphabetical_sorting_and_update(self):
+        """Valida que la lista del combo de perfiles se ordene alfabéticamente y se actualice."""
+        app = ConfigApp(
+            context=self.context,
+            dev_mode=True
+        )
+        if hasattr(app, "login_frame") and app.login_frame:
+            app.login_frame.destroy()
+        app._build_main_ui()
+
+        try:
+            # Inyectar perfiles desordenados en working_config
+            app.working_config[SECTION_PROFILES] = {
+                "Z0": {"info": {"nombre": "Zulu Corp"}, "conexiones": {"port": 1433, "host": "10.0.0.1"}},
+                "02": {"info": {"nombre": "Beta S.A."}, "conexiones": {"port": 1433, "host": "10.0.0.2"}},
+                "01": {"info": {"nombre": "Alpha C.A."}, "conexiones": {"port": 1433, "host": "10.0.0.3"}}
+            }
+            display_list = app._get_profile_display_list()
+            expected = ["01 - Alpha C.A.", "02 - Beta S.A.", "Z0 - Zulu Corp"]
+            self.assertEqual(display_list, expected)
+
+            # Probar _update_profile_combo
+            app.active_profile = "02"
+            app._update_profile_combo()
+            self.assertEqual(app.combo_profile.cget("values"), expected)
+            self.assertEqual(app.combo_profile.get(), "02 - Beta S.A.")
+
+            # Cambiar nombre y actualizar
+            app.working_config[SECTION_PROFILES]["02"]["info"]["nombre"] = "Bravo S.A."
+            app._update_profile_combo(target_profile="02")
+            new_expected = ["01 - Alpha C.A.", "02 - Bravo S.A.", "Z0 - Zulu Corp"]
+            self.assertEqual(app.combo_profile.cget("values"), new_expected)
+            self.assertEqual(app.combo_profile.get(), "02 - Bravo S.A.")
+
+        finally:
+            app.destroy()
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
