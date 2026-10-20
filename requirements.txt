@@ -1,0 +1,36 @@
+# ==============================================================================
+# Dependencias directas del núcleo de cifrado y configuración (pkg-asiscfg)
+# ==============================================================================
+cryptography>=40.0.0
+
+# ==============================================================================
+# Interfaz Gráfica Administrativa (GUI / asiscfg --ui)
+# ==============================================================================
+customtkinter>=6.0.0
+pillow>=10.0.0
+
+# ==============================================================================
+# Infraestructura ASISNET (i18n y Fachada asisdb)
+# ==============================================================================
+# Opción 1: Desarrollo local en caliente (modo editable)
+-e ../pkg-i18n
+-e ../pkg-asisdb[mssql]
+#-e ../pkg-asisdb[postgres]
+#-e ../pkg-asisdb[mysql]
+#-e ../pkg-asisdb[all]
+
+# Opción 2: Instalación directa desde GitHub (Producción / CI/CD)
+# pkg-i18n @ git+https://github.com/borispinto/pkg-i18n.git
+# pkg-asisdb[mssql] @ git+https://github.com/borispinto/pkg-asisdb.git
+# pkg-asisdb[postgres] @ git+https://github.com/borispinto/pkg-asisdb.git
+# pkg-asisdb[mysql] @ git+https://github.com/borispinto/pkg-asisdb.git
+# pkg-asisdb[all] @ git+https://github.com/borispinto/pkg-asisdb.git
+
+# Opción 3: Distribución estándar (PyPI / Índice de paquetes)
+# pkg-i18n>=1.0.0
+# pkg-asisdb>=1.0.0
+# pkg-asisdb[mssql]>=1.0.0
+# pkg-asisdb[postgres]>=1.0.0
+# pkg-asisdb[mysql]>=1.0.0
+# pkg-asisdb[all]>=1.0.0
+
