@@ -313,24 +313,26 @@ def parse_config_args(
 
 def add_config_arguments(parser: argparse.ArgumentParser) -> None:
     """Registra en el ArgumentParser las opciones estándar del CLI."""
-    parser.add_argument("--config-file", type=str, help="Ruta al archivo de configuración.")
-    parser.add_argument("--key-file", type=str, help="Ruta al archivo de clave.")
-    parser.add_argument("--schema-file", type=str, help="Ruta al archivo de esquema.")
+    if hasattr(parser, "prefix_chars") and "/" not in parser.prefix_chars:
+        parser.prefix_chars += "/"
+    parser.add_argument("/config-file", type=str, help="Ruta al archivo de configuración.")
+    parser.add_argument("/key-file", type=str, help="Ruta al archivo de clave.")
+    parser.add_argument("/schema-file", type=str, help="Ruta al archivo de esquema.")
     parser.add_argument(
-        "--format-mode",
+        "/format-mode",
         type=str,
         choices=list(FORMAT_MODES.keys()),
         default="plain",
         help="Modo de formato y motor criptográfico.",
     )
-    parser.add_argument("--ui", action="store_true", help="Iniciar interfaz gráfica de administración.")
-    parser.add_argument("--generate-key", action="store_true", help="Generar un nuevo archivo de clave.")
-    parser.add_argument("--export-schema", action="store_true", help="Exportar archivo de esquema.")
-    parser.add_argument("--edit", action="store_true", help="Habilitar edición de la sección de aplicación.")
-    parser.add_argument("--dev", action="store_true", help="Modo desarrollador.")
-    parser.add_argument("--debug", action="store_true", help="Modo depuración detallado.")
-    parser.add_argument("--show", action="store_true", help="Mostrar diálogos modales emergentes.")
-    parser.add_argument("--install", action="store_true", help="Modo instalación asistida.")
+    parser.add_argument("/ui", action="store_true", help="Iniciar interfaz gráfica de administración.")
+    parser.add_argument("/generate-key", action="store_true", help="Generar un nuevo archivo de clave.")
+    parser.add_argument("/export-schema", action="store_true", help="Exportar archivo de esquema.")
+    parser.add_argument("/edit", action="store_true", help="Habilitar edición de la sección de aplicación.")
+    parser.add_argument("/dev", action="store_true", help="Modo desarrollador.")
+    parser.add_argument("/debug", action="store_true", help="Modo depuración detallado.")
+    parser.add_argument("/show", action="store_true", help="Mostrar diálogos modales emergentes.")
+    parser.add_argument("/install", action="store_true", help="Modo instalación asistida.")
 
 
 def create_cli_parser(
@@ -351,7 +353,7 @@ def create_cli_parser(
         if help_info.get("description"):
             description = help_info["description"]
         elif prog != "asiscfg":
-            description = f"Herramienta {prog}"
+            description = prog if prog.lower().startswith("herramienta") else f"Herramienta {prog}"
 
         if help_info.get("epilog"):
             epilog = help_info["epilog"]
@@ -360,6 +362,12 @@ def create_cli_parser(
         if help_info.get("formatter_class"):
             formatter_class = help_info["formatter_class"]
 
+    separators_note = "Nota: Separadores válidos: ['-', '--', '/']"
+    if description:
+        description = f"{description}\n\n{separators_note}"
+    else:
+        description = separators_note
+
     parser = argparse.ArgumentParser(
         prog=prog,
         description=description,
@@ -367,13 +375,21 @@ def create_cli_parser(
         usage=usage,
         formatter_class=formatter_class,
         prefix_chars="-/",
+        add_help=False,
+    )
+    parser.add_argument(
+        "/help",
+        "/h",
+        "/?",
+        action="help",
+        help="Muestra este mensaje de ayuda y finaliza.",
     )
 
     if help_info and help_info.get("params"):
         group_title = f"Parámetros de {prog}" if prog != "asiscfg" else "Parámetros de la Aplicación"
         grp = parser.add_argument_group(group_title)
         for name, spec in help_info["params"].items():
-            flags = [f"--{name}", f"/{name}"]
+            flags = [f"/{name}"]
             p_help = spec.get("help", "")
             if spec.get("is_bool"):
                 grp.add_argument(*flags, action="store_true", help=p_help)

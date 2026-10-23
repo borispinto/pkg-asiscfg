@@ -436,17 +436,20 @@ class TestInitAppConfig(unittest.TestCase):
         parser = create_cli_parser()
         help_text = parser.format_help()
 
-        # No debe contener --action como argumento directo
-        self.assertNotIn("--action", help_text)
-        # No debe contener --noshow
-        self.assertNotIn("--noshow", help_text)
-        # Debe contener --show, -show
-        self.assertIn("--show", help_text)
-        self.assertIn("-show", help_text)
-        # Debe contener flags de acción en orden
-        self.assertIn("--export-schema", help_text)
-        self.assertIn("--generate-key", help_text)
-        self.assertIn("--ui", help_text)
+        # No debe contener /action como argumento directo
+        self.assertNotIn("/action", help_text)
+        # No debe contener /noshow
+        self.assertNotIn("/noshow", help_text)
+        # Debe contener /show
+        self.assertIn("/show", help_text)
+        # Debe contener flags de acción en orden con prefijo '/'
+        self.assertIn("/export-schema", help_text)
+        self.assertIn("/generate-key", help_text)
+        self.assertIn("/ui", help_text)
+        self.assertIn("/help", help_text)
+        self.assertIn("/h", help_text)
+        self.assertIn("/?", help_text)
+        self.assertIn("Separadores válidos: ['-', '--', '/']", help_text)
 
     def test_init_app_config_install_mode_creates_files(self):
         new_dir = tempfile.mkdtemp()
@@ -494,10 +497,11 @@ class TestInitAppConfig(unittest.TestCase):
         self.assertIn("Descripción de Mi Aplicación", help_text)
         self.assertIn("Ejemplo: MIAPP 123", help_text)
         self.assertIn("Parámetros de MIAPP:", help_text)
-        self.assertIn("--identificador", help_text)
-        self.assertIn("--custom-flag", help_text)
+        self.assertIn("/identificador", help_text)
+        self.assertIn("/custom-flag", help_text)
         self.assertIn("Opciones de Configuración Cifrada (asiscfg):", help_text)
-        self.assertIn("--config-file", help_text)
+        self.assertIn("/config-file", help_text)
+        self.assertIn("Separadores válidos: ['-', '--', '/']", help_text)
 
     def test_create_cli_parser_with_minimal_app_help_dict(self):
         from asiscfg.cli import create_cli_parser
@@ -510,9 +514,10 @@ class TestInitAppConfig(unittest.TestCase):
 
         parser = create_cli_parser(prog="TESTPROG", app_help=app_help)
         help_text = parser.format_help()
-        self.assertIn("--only-arg", help_text)
+        self.assertIn("/only-arg", help_text)
         self.assertIn("Herramienta TESTPROG", help_text)
         self.assertIn("Opciones de Configuración Cifrada (asiscfg):", help_text)
+        self.assertIn("Separadores válidos: ['-', '--', '/']", help_text)
 
     def test_init_app_config_help_invokes_app_help(self):
         from unittest.mock import patch
@@ -535,8 +540,9 @@ class TestInitAppConfig(unittest.TestCase):
             self.assertEqual(boot.exit_code, 0)
             output = mock_stdout.getvalue()
             self.assertIn("App Help Test", output)
-            self.assertIn("--custom-arg", output)
+            self.assertIn("/custom-arg", output)
             self.assertIn("Opciones de Configuración Cifrada (asiscfg):", output)
+            self.assertIn("Separadores válidos: ['-', '--', '/']", output)
 
     def test_normalize_app_help_and_params_rejects_invalid_structures(self):
         from asiscfg.cli import normalize_app_help_and_params
@@ -697,8 +703,9 @@ class TestInitAppConfig(unittest.TestCase):
             self.assertIn("Sistema de Prueba Declarativo", output)
             self.assertIn("Ejemplo: test /param1:val", output)
             self.assertIn("Parámetros de DECLARATIVE_APP:", output)
-            self.assertIn("--param1", output)
-            self.assertIn("--flag1", output)
+            self.assertIn("/param1", output)
+            self.assertIn("/flag1", output)
+            self.assertIn("Separadores válidos: ['-', '--', '/']", output)
             self.assertIn("Opciones de Configuración Cifrada (asiscfg):", output)
 
     def test_install_priority_over_other_actions(self):
