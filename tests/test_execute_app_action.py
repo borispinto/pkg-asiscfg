@@ -44,9 +44,8 @@ class TestExecuteAppAction(unittest.TestCase):
         ctx = create_app_context(
             action="generate_key",
             key_file=target_key,
-            metadata={"overwrite_key": True}
         )
-        res = execute_app_action(ctx)
+        res = execute_app_action(ctx, overwrite_key=True)
         self.assertEqual(res, 0)
         mock_gen.assert_called_once_with(context=ctx, overwrite=True)
 
@@ -85,16 +84,16 @@ class TestExecuteAppAction(unittest.TestCase):
             key_file=self.key_path,
             schema_file=self.schema_path,
             dev_mode=True,
-            metadata={"theme": "light", "edit": True}
         )
-        res = execute_app_action(context=ctx)
+        res = execute_app_action(context=ctx, theme="light", edit=True)
         self.assertEqual(res, 0)
         mock_app_cls.assert_called_once_with(
             context=ctx,
             i18n_path=None,
             dev_mode=True,
             allow_app_edit=True,
-            theme="light"
+            theme="light",
+            is_install_mode=False,
         )
         mock_instance.mainloop.assert_called_once()
 

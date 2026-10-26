@@ -328,8 +328,19 @@ class ConfigDict(dict):
             return profiles[profile_code]
         return {}
 
+    def save_values(self, updates: Dict[str, Any]) -> None:
+        """Actualiza y persiste de forma quirúrgica claves específicas en disco sin reescribir todo el archivo."""
+        from asiscfg.storage import save_values
+
+        save_values(self.context, updates, config_instance=self)
+
     def save(self, config_path: Optional[str] = None) -> Optional[str]:
         """Persiste el estado actual de la configuración en disco usando su contexto asociado."""
+        if self.context and getattr(self.context, "action", "") == "consume":
+            raise RuntimeError(
+                "En modo producción ('consume') el guardado masivo está deshabilitado para evitar sobreescrituras destructivas. "
+                "Utilice 'save_values(updates)' con un diccionario de las claves específicas a actualizar."
+            )
         from asiscfg.storage import save_config
 
         return save_config(self.context, self, config_path=config_path)
@@ -343,13 +354,20 @@ class ConfigBootstrap:
     """
 
     config: Optional[ConfigDict] = None
-    context: Optional[AppConfigContext] = None
     exit_code: Optional[int] = None
     remaining_args: List[str] = field(default_factory=list)
     params: Dict[str, Any] = field(default_factory=dict)
     debug: bool = False
     dev_mode: bool = False
     show_modals: bool = False
+    _context: Optional[AppConfigContext] = field(default=None, repr=False)
+
+    @property
+    def context(self) -> Optional[AppConfigContext]:
+        """Contexto de infraestructura interna asociado a la configuración activa (no visible en repr)."""
+        if self._context is not None:
+            return self._context
+        return self.config.context if self.config is not None else None
 
     def param(self, key: str, default: Any = None) -> Any:
         """Acceso tipado directo a parámetros parseados y validados de la aplicación."""
@@ -428,6 +446,12 @@ class ConfigBootstrap:
             valor_compara=valor_compara,
             debug=debug,
         )
+
+    def save_values(self, updates: Dict[str, Any]) -> None:
+        """Actualiza y persiste de forma quirúrgica claves específicas en disco delegando en la configuración activa."""
+        if self.config is None:
+            raise RuntimeError("No hay una instancia de configuración activa cargada para guardar valores.")
+        self.config.save_values(updates)
 
     def save(self, config_path: Optional[str] = None) -> Optional[str]:
         """Persiste la configuración en disco delegando en la instancia activa."""

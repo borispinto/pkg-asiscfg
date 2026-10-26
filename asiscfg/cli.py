@@ -203,7 +203,7 @@ def parse_config_args(
 
     remaining_args: List[str] = []
 
-    separadores = ["/", "-", "--"]
+    separadores = ["/", "--", "-"]
 
     value_flag_bases = {
         "config-file": "config_file",
@@ -308,7 +308,33 @@ def parse_config_args(
     else:
         tokens["action"] = default_action
 
-    return tokens, remaining_args
+    # Estandarización del separador en remaining_args
+    standardized_remaining: List[str] = []
+    for item in remaining_args:
+        if item in ("--", "-"):
+            standardized_remaining.append(item)
+            continue
+
+        if item.startswith("-") and len(item) > 1:
+            val_part = item[1:]
+            is_num = False
+            try:
+                float(val_part)
+                is_num = True
+            except ValueError:
+                is_num = False
+            if is_num:
+                standardized_remaining.append(item)
+                continue
+
+        if item.startswith("--"):
+            standardized_remaining.append(f"/{item[2:]}")
+        elif item.startswith("-"):
+            standardized_remaining.append(f"/{item[1:]}")
+        else:
+            standardized_remaining.append(item)
+
+    return tokens, standardized_remaining
 
 
 def add_config_arguments(parser: argparse.ArgumentParser) -> None:
@@ -450,7 +476,6 @@ def init_app_config(
         parser.print_help()
         return ConfigBootstrap(
             config=None,
-            context=None,
             exit_code=0,
             remaining_args=remaining_args,
             params={},
@@ -509,7 +534,6 @@ def init_app_config(
             show_modal_message_dialog(f"{app_title} - Error de Parámetros", err_msg, icon_type="error")
         return ConfigBootstrap(
             config=None,
-            context=None,
             exit_code=2,
             remaining_args=remaining_args,
             params=client_params,
@@ -539,7 +563,6 @@ def init_app_config(
                 show_modal_message_dialog(f"{app_title} - Error de Permisos", err_msg, icon_type="error")
             return ConfigBootstrap(
                 config=None,
-                context=None,
                 exit_code=1,
                 remaining_args=remaining_args,
                 params=client_params,
@@ -568,7 +591,6 @@ def init_app_config(
                 print("[INFO] Proceso de instalación cancelado por el usuario. Datos anteriores preservados.")
                 return ConfigBootstrap(
                     config=None,
-                    context=None,
                     exit_code=0,
                     remaining_args=remaining_args,
                     params=client_params,
@@ -595,7 +617,6 @@ def init_app_config(
             show_modal_message_dialog(f"{app_title} - Error de Inicialización", error, icon_type="error")
         return ConfigBootstrap(
             config=None,
-            context=None,
             exit_code=1,
             remaining_args=remaining_args,
             params=client_params,
@@ -615,14 +636,6 @@ def init_app_config(
             format_mode=tokens.get("format_mode", "plain"),
             is_standalone=is_standalone,
             dev_mode=dev_flag,
-            metadata={
-                "debug": debug_flag,
-                "show": show_flag,
-                "last_resource": bool(tokens.get("last_resource")),
-                "edit": bool(tokens.get("edit")),
-                "install": is_install_mode,
-                "tokens": tokens,
-            },
         )
     except Exception as e:
         if debug_flag or tokens.get("last_resource"):
@@ -635,7 +648,6 @@ def init_app_config(
             )
         return ConfigBootstrap(
             config=None,
-            context=None,
             exit_code=1,
             remaining_args=remaining_args,
             params=client_params,
@@ -656,27 +668,37 @@ def init_app_config(
                 show_modal_message_dialog(f"{app_title} - Error de Inicialización", err_init, icon_type="error")
             return ConfigBootstrap(
                 config=None,
-                context=app_ctx,
                 exit_code=1,
                 remaining_args=remaining_args,
                 params=client_params,
                 debug=debug_flag,
                 dev_mode=dev_flag,
                 show_modals=show_flag,
+                _context=app_ctx,
             )
 
     # Delegación de acciones de asiscfg
-    action_result = execute_app_action(context=app_ctx, exit_on_finish=False)
+    action_result = execute_app_action(
+        context=app_ctx,
+        exit_on_finish=False,
+        overwrite_key=bool(tokens.get("overwrite_key")),
+        i18n_path=tokens.get("i18n_path"),
+        edit=bool(tokens.get("edit")),
+        reset_admin_pass=bool(tokens.get("reset_admin_pass")),
+        theme=str(tokens.get("theme") or "dark"),
+        is_install_mode=is_install_mode,
+        new_admin_pass=tokens.get("new_admin_pass"),
+    )
     if action_result is not None:
         return ConfigBootstrap(
             config=None,
-            context=app_ctx,
             exit_code=action_result,
             remaining_args=remaining_args,
             params=client_params,
             debug=debug_flag,
             dev_mode=dev_flag,
             show_modals=show_flag,
+            _context=app_ctx,
         )
 
     # Flujo de consumo para el anfitrión
@@ -693,24 +715,24 @@ def init_app_config(
             )
         return ConfigBootstrap(
             config=None,
-            context=app_ctx,
             exit_code=1,
             remaining_args=remaining_args,
             params=client_params,
             debug=debug_flag,
             dev_mode=dev_flag,
             show_modals=show_flag,
+            _context=app_ctx,
         )
 
     return ConfigBootstrap(
         config=config,
-        context=app_ctx,
         exit_code=None,
         remaining_args=remaining_args,
         params=client_params,
         debug=debug_flag,
         dev_mode=dev_flag,
         show_modals=show_flag,
+        _context=app_ctx,
     )
 
 
@@ -727,6 +749,6 @@ def main(args: Optional[Sequence[str]] = None) -> int:
     if bootstrap.exit_code is not None:
         return bootstrap.exit_code
 
-    if bootstrap.config is None and bootstrap.context is None:
+    if bootstrap.config is None:
         return 1
     return 0

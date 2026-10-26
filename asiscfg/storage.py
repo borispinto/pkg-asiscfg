@@ -28,6 +28,7 @@ from asiscfg.constants import (
     NO_MODIFY_KEY,
     NULL_SENTINEL,
     PUBLIC_PREFIX,
+    SECTION_ASISCFG,
     SECTION_PROFILES,
     is_business_section,
     is_schema_directive,
@@ -42,7 +43,11 @@ from asiscfg.crypto import (
     get_format_engine,
 )
 from asiscfg.models import ConfigDict
-from asiscfg.schema import DEFAULT_BACKUP_SETTINGS, validate_and_correct_config
+from asiscfg.schema import (
+    DEFAULT_BACKUP_SETTINGS,
+    load_schema_definition,
+    validate_and_correct_config,
+)
 from asiscfg.security import is_admin, log_audit_event, set_admin_password
 
 
@@ -682,38 +687,25 @@ def _compare_plain_snapshots(
     return diffs
 
 
-def load_config(context: AppConfigContext, edit_mode: Optional[bool] = None) -> ConfigDict:
+def read_and_verify_config(
+    context: AppConfigContext,
+    edit_mode: bool = False,
+) -> Tuple[Dict[str, Any], BaseFormatEngine, bytes, str, List[Any]]:
     """
-    Carga, descifra y valida la configuración aplicando reglas de esquema desde AppConfigContext.
-    Autodetecta el formato dinámicamente usando detect_format_engine (Strategy).
+    Función canónica única para lectura física, descifrado y verificación de integridad de configuración.
+    Axioma de Nivel 3: Valida cabeceras, descifra payload con la clave activa y verifica sellado forense.
+    Retorna tupla: (data, engine, key_bytes, detected_format, audit_diffs).
     """
-    if edit_mode is None:
-        edit_mode = bool(
-            getattr(context, "action", "") == "ui"
-            or (
-                isinstance(getattr(context, "metadata", None), dict)
-                and (context.metadata.get("edit", False) or context.metadata.get("install", False))
-            )
-        )
+    if not isinstance(context, AppConfigContext):
+        raise TypeError(f"El parámetro 'context' debe ser AppConfigContext, recibido: {type(context).__name__}")
 
     abs_config = context.config_file_path
-    def_cfg = context.default_config if context else {}
-    val_rules = context.validation_rules if context else {}
-
-    if not os.path.exists(abs_config):
-        if not edit_mode:
-            raise FileNotFoundError(f"El archivo de configuración no existe: {abs_config}")
-        save_config(context, def_cfg)
-        res = ConfigDict(context, def_cfg, default_config=def_cfg, validation_rules=val_rules)
-        res.set_default_config(def_cfg)
-        return res
+    if not abs_config or not os.path.exists(abs_config):
+        raise FileNotFoundError(f"El archivo de configuración no existe: {abs_config}")
 
     key = get_key(context)
     with open(abs_config, "rb") as f:
         raw_bytes = f.read()
-
-    detected_unencrypted_passwords: List[Any] = []
-    audit_diffs: List[Any] = []
 
     try:
         detected_format, engine = detect_format_engine(raw_bytes)
@@ -734,10 +726,16 @@ def load_config(context: AppConfigContext, edit_mode: Optional[bool] = None) -> 
         data_lines.append(l)
 
     payload_bytes = b"\n".join(data_lines).strip()
-    decrypted_bytes = engine.decrypt_payload(payload_bytes, key)
-    data = json.loads(decrypted_bytes.decode("utf-8"))
+    try:
+        decrypted_bytes = engine.decrypt_payload(payload_bytes, key)
+        data = json.loads(decrypted_bytes.decode("utf-8"))
+    except Exception as e:
+        raise ValueError(f"Falla al descifrar o decodificar el contenido de configuración en '{abs_config}': {e}") from e
 
-    # Verificación de correspondencia entre security_level y el sellado físico en disco
+    if not isinstance(data, dict):
+        raise ValueError(f"El contenido de configuración en '{abs_config}' no es un diccionario válido.")
+
+    audit_diffs: List[Any] = []
     sec_level = getattr(context, "security_level", 0)
     has_seal = isinstance(data, dict) and (NO_MODIFY_KEY in data)
 
@@ -798,6 +796,33 @@ def load_config(context: AppConfigContext, edit_mode: Optional[bool] = None) -> 
             else:
                 logging.warning(f"[SECURITY] {msg} ({abs_config})")
                 audit_diffs.append({"status": "unexpected_seal", "key_path": NO_MODIFY_KEY, "error": msg})
+
+    context.format_mode = detected_format
+    return data, engine, key, detected_format, audit_diffs
+
+
+def load_config(context: AppConfigContext, edit_mode: Optional[bool] = None) -> ConfigDict:
+    """
+    Carga, descifra y valida la configuración aplicando reglas de esquema desde AppConfigContext.
+    Autodetecta el formato dinámicamente usando detect_format_engine (Strategy).
+    """
+    if edit_mode is None:
+        edit_mode = bool(getattr(context, "action", "") == "ui")
+
+    abs_config = context.config_file_path
+    def_cfg = context.default_config if context else {}
+    val_rules = context.validation_rules if context else {}
+
+    if not os.path.exists(abs_config):
+        if not edit_mode:
+            raise FileNotFoundError(f"El archivo de configuración no existe: {abs_config}")
+        save_config(context, def_cfg)
+        res = ConfigDict(context, def_cfg, default_config=def_cfg, validation_rules=val_rules)
+        res.set_default_config(def_cfg)
+        return res
+
+    data, engine, key, detected_format, audit_diffs = read_and_verify_config(context, edit_mode=edit_mode)
+    detected_unencrypted_passwords: List[Any] = []
 
     # Detección estricta de las 4 fallas canónicas de contraseñas
     pwd_failures = _detect_password_field_failures(
@@ -896,7 +921,7 @@ def load_config(context: AppConfigContext, edit_mode: Optional[bool] = None) -> 
                             if sec_prules is not None and fk not in sec_prules:
                                 logging.warning(f"[CONFIG] Clave1 '{p_sec}.{fk}' en perfil '{p_code}' omitida (no existe en el esquema)")
                                 continue
-                            if isinstance(sec_prules.get(fk), dict) and sec_prules[fk].get("type") == "test_connection":
+                            if sec_prules is not None and isinstance(sec_prules.get(fk), dict) and sec_prules[fk].get("type") == "test_connection":
                                 continue
                             p_entry[p_sec][fk] = fv
                     filtered_profiles[p_code] = p_entry
@@ -930,7 +955,18 @@ def load_config(context: AppConfigContext, edit_mode: Optional[bool] = None) -> 
 
     has_schema = bool(business_secs or (val_rules and any(is_business_section(k) for k in val_rules.keys())))
     if has_schema:
-        return validate_and_correct_config(res, validation_rules=val_rules, default_config=def_cfg, context=context)
+        res = validate_and_correct_config(res, validation_rules=val_rules, default_config=def_cfg, context=context)
+
+    if not edit_mode:
+        res.pop(NO_MODIFY_KEY, None)
+        context.profile_template = {}
+        context.validation_rules = {}
+        context.backup_settings = {}
+        context.public_fields = []
+        res._validation_rules = {}
+        res._unencrypted_passwords = []
+        res._password_failures = []
+        res._audit_diffs = []
 
     return res
 
@@ -1021,6 +1057,106 @@ def save_config(
     return backup_created
 
 
+def save_values(
+    context: AppConfigContext,
+    updates: Dict[str, Any],
+    config_instance: Optional[ConfigDict] = None,
+) -> None:
+    """
+    Actualiza y persiste de forma quirúrgica claves específicas en disco sin reescribir todo el archivo.
+    Garantiza concurrencia releyendo el archivo físico fresco, validando integridad, aplicando cifrado
+    a contraseñas y actualizando el sellado forense y respaldos según corresponda.
+    """
+    if not isinstance(context, AppConfigContext):
+        raise TypeError(f"El parámetro 'context' debe ser AppConfigContext, recibido: {type(context).__name__}")
+    if not isinstance(updates, dict):
+        raise TypeError(f"El parámetro 'updates' debe ser de tipo dict, recibido: {type(updates).__name__}")
+    if not updates:
+        raise ValueError("El diccionario 'updates' no puede estar vacío.")
+
+    for k in updates.keys():
+        if not isinstance(k, str) or not k.strip():
+            raise ValueError(f"Las claves en 'updates' deben ser cadenas no vacías, recibido: {k!r}")
+
+    # Relectura fresca y verificación unificada de integridad
+    current_data, engine, key, detected_format, _ = read_and_verify_config(context, edit_mode=False)
+    abs_config = context.config_file_path
+
+    # Carga JIT de metadatos del esquema
+    schema_path = context.schema_file_path
+    schema_info = load_schema_definition(schema_path) if (schema_path and os.path.exists(schema_path)) else {}
+    pwd_fields = set(schema_info.get("password_fields", [])) if schema_info else set(context.password_fields)
+    backup_rules = schema_info.get("backup_settings", {}) if schema_info else context.backup_settings
+    public_fields = schema_info.get("public_fields", []) if schema_info else context.public_fields
+    sec_level = schema_info.get("security_level", 0) if schema_info else getattr(context, "security_level", 0)
+
+    def _is_pwd_field(kp: str) -> bool:
+        if kp in pwd_fields:
+            return True
+        parts = kp.split(".")
+        if len(parts) >= 3 and parts[0] == SECTION_PROFILES:
+            norm_prof_key = f"{parts[0]}.{'.'.join(parts[2:])}"
+            if norm_prof_key in pwd_fields:
+                return True
+        return False
+
+    # Actualizar quirúrgicamente cada clave en el árbol físico
+    for key_path, new_value in updates.items():
+        is_pwd = _is_pwd_field(key_path)
+        if is_pwd:
+            if new_value is None or new_value == "" or new_value == NULL_SENTINEL:
+                val_to_store = engine.encrypt_field(NULL_SENTINEL, key) if not engine.is_full_encrypted else NULL_SENTINEL
+            elif engine.is_full_encrypted:
+                val_to_store = str(new_value)
+            else:
+                val_to_store = engine.encrypt_field(str(new_value), key)
+        else:
+            val_to_store = new_value
+
+        parts = key_path.split(".")
+        cursor = current_data
+        for part in parts[:-1]:
+            if part not in cursor or not isinstance(cursor[part], dict):
+                cursor[part] = {}
+            cursor = cursor[part]
+        cursor[parts[-1]] = val_to_store
+
+        # Sincronización en caliente en memoria si se proporcionó la instancia
+        if config_instance is not None and isinstance(config_instance, dict):
+            mem_cursor = config_instance
+            for part in parts[:-1]:
+                if part not in mem_cursor or not isinstance(mem_cursor[part], dict):
+                    mem_cursor[part] = {}
+                mem_cursor = mem_cursor[part]
+            mem_cursor[parts[-1]] = val_to_store
+
+    # Respaldo automático
+    if backup_rules and backup_rules.get("enabled", False):
+        perform_backup(abs_config, current_data, backup_rules)
+
+    # Sellado forense para modo plain si security_level == 1
+    if engine.mode_id == "plain" and sec_level == 1:
+        snapshot_clean = {k: v for k, v in current_data.items() if k != NO_MODIFY_KEY}
+        snapshot_bytes = json.dumps(snapshot_clean, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        plain_fernet_engine = FORMAT_MODES["fernet"]
+        sealed_token = plain_fernet_engine.encrypt_payload(snapshot_bytes, key).decode("utf-8")
+        current_data[NO_MODIFY_KEY] = sealed_token
+    else:
+        current_data.pop(NO_MODIFY_KEY, None)
+
+    public_comments = _collect_public_comments(current_data, public_fields)
+    json_bytes = json.dumps(current_data, indent=4, ensure_ascii=False).encode("utf-8")
+    payload = engine.encrypt_payload(json_bytes, key)
+
+    comment_bytes = b"".join(f"{c}\n".encode("utf-8") for c in public_comments)
+    content = f"{engine.header}\n".encode("utf-8") + comment_bytes + payload + b"\n"
+
+    temp_path = f"{abs_config}.tmp"
+    with open(temp_path, "wb") as f:
+        f.write(content)
+    shutil.move(temp_path, abs_config)
+
+
 def export_config_schema(source_path: str, target_path: str) -> int:
     """Exporta / copia el archivo de esquema resuelto desde source_path hacia target_path."""
     try:
@@ -1050,21 +1186,29 @@ def export_config_schema(source_path: str, target_path: str) -> int:
         return 1
 
 
-def execute_app_action(context: AppConfigContext, exit_on_finish: bool = False) -> Optional[int]:
+def execute_app_action(
+    context: AppConfigContext,
+    exit_on_finish: bool = False,
+    *,
+    overwrite_key: bool = False,
+    i18n_path: Optional[str] = None,
+    edit: bool = False,
+    reset_admin_pass: bool = False,
+    theme: str = "dark",
+    is_install_mode: bool = False,
+    new_admin_pass: Optional[str] = None,
+) -> Optional[int]:
     """
     Ejecuta centralizadamente la acción correspondiente al contexto de la aplicación.
     - Para 'generate_key', 'export_schema' y 'ui': ejecuta y retorna el código de salida (int).
     - Para 'consume': retorna None permitiendo continuar la ejecución de la aplicación consumidora.
     """
     action = context.action
-    meta = context.metadata if isinstance(context.metadata, dict) else {}
-    tokens = meta.get("tokens", {}) if isinstance(meta.get("tokens"), dict) else {}
-
-    eff_overwrite = bool(meta.get("overwrite_key") or tokens.get("overwrite_key", False))
-    eff_i18n = meta.get("i18n_path") or tokens.get("i18n_path")
-    eff_edit = bool(meta.get("edit") or tokens.get("edit", False))
-    eff_reset = bool(meta.get("reset_admin_pass") or tokens.get("reset_admin_pass", False))
-    eff_theme = str(meta.get("theme") or tokens.get("theme") or "dark")
+    eff_overwrite = bool(overwrite_key)
+    eff_i18n = i18n_path
+    eff_edit = bool(edit)
+    eff_reset = bool(reset_admin_pass)
+    eff_theme = str(theme or "dark")
 
     if action == "generate_key":
         try:
@@ -1110,20 +1254,20 @@ def execute_app_action(context: AppConfigContext, exit_on_finish: bool = False) 
                     sys.exit(code)
                 return code
             try:
-                new_pass = meta.get("new_admin_pass") or tokens.get("new_admin_pass")
-                if not new_pass:
+                eff_new_pass = new_admin_pass
+                if not eff_new_pass:
                     try:
                         import getpass
-                        new_pass = getpass.getpass("Ingrese la nueva clave de administración (mín. 4 caracteres): ").strip()
+                        eff_new_pass = getpass.getpass("Ingrese la nueva clave de administración (mín. 4 caracteres): ").strip()
                         confirm_pass = getpass.getpass("Confirme la nueva clave de administración: ").strip()
-                        if len(new_pass) < 4:
+                        if len(eff_new_pass) < 4:
                             raise ValueError("La clave debe tener al menos 4 caracteres.")
-                        if new_pass != confirm_pass:
+                        if eff_new_pass != confirm_pass:
                             raise ValueError("Las contraseñas no coinciden.")
                     except (EOFError, KeyboardInterrupt):
                         raise RuntimeError("Operación cancelada por el usuario.")
                 cfg = load_config(context, edit_mode=True)
-                set_admin_password(cfg, new_pass)
+                set_admin_password(cfg, eff_new_pass)
                 save_config(context, dict(cfg))
                 log_audit_event("ADMIN_PASS_RESET_CLI", f"Clave admin restablecida en {resolved_config}")
                 print("[INFO] La clave de administración ha sido restablecida exitosamente.")
@@ -1145,6 +1289,7 @@ def execute_app_action(context: AppConfigContext, exit_on_finish: bool = False) 
                 dev_mode=context.dev_mode,
                 allow_app_edit=eff_edit,
                 theme=eff_theme,
+                is_install_mode=is_install_mode,
             )
             app.mainloop()
             code = 0

@@ -14,7 +14,7 @@ Muestra:
   3. Consultas directas de perfil con valor_profile() y valorpass_profile().
   4. Consultas con herencia en cascada (Perfil -> Global -> Default) con valor_parent() y valorpass_parent().
   5. Consulta de parámetros CLI validados (param) y preservación de argumentos externos (remaining_args).
-  6. Modificación y persistencia directa con bootstrap.save().
+  6. Modificación y persistencia atómica específica con bootstrap.save_values().
   7. Ejecución en modo consola y modo interfaz gráfica (--ui).
 """
 
@@ -141,12 +141,12 @@ def main():
     print(f"  • Argumentos Externos (FoxPro / anfitrión): {bootstrap.remaining_args}")
 
     # -------------------------------------------------------------------------
-    # 5. Modificación y Persistencia Directa
+    # 5. Modificación y Persistencia Quirúrgica Atómica (save_values)
     # -------------------------------------------------------------------------
-    bootstrap.config["general"]["empresa"] = "Corporación Demo C.A."
-    bootstrap.save()
-    print("\n[6. Persistencia Directa]")
-    print("  • Configuración verificada y guardada con bootstrap.save().")
+    bootstrap.save_values({"general.empresa": "Corporación Demo C.A."})
+    print("\n[6. Persistencia Específica Atómica]")
+    print(f"  • Configuración verificada y guardada en disco con bootstrap.save_values().")
+    print(f"  • Valor en memoria sincronizado en caliente: '{bootstrap.valor('general.empresa')}'")
 
     print("\n" + "=" * 70)
     print("  Para abrir la interfaz gráfica con selector de perfiles y botones de prueba:")

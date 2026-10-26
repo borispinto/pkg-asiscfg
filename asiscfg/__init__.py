@@ -87,7 +87,9 @@ from asiscfg.storage import (
     get_key,
     load_config,
     perform_backup,
+    read_and_verify_config,
     save_config,
+    save_values,
     verify_key_integrity,
 )
 
@@ -177,8 +179,10 @@ __all__ = [
     "is_admin",
     "log_audit_event",
     # Persistencia y Almacenamiento
+    "read_and_verify_config",
     "load_config",
     "save_config",
+    "save_values",
     "get_key",
     "generate_key_file",
     "verify_key_integrity",

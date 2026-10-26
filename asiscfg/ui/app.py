@@ -60,7 +60,8 @@ class ConfigApp(ctk.CTk):
         i18n_path: Optional[str] = None,
         dev_mode: bool = False,
         allow_app_edit: bool = False,
-        theme: str = "dark"
+        theme: str = "dark",
+        is_install_mode: bool = False,
     ):
         self.context = context
         self.config_file = self.context.config_file_path
@@ -69,6 +70,7 @@ class ConfigApp(ctk.CTk):
         self.i18n_path = i18n_path
         self.dev_mode = dev_mode
         self.allow_app_edit = allow_app_edit
+        self.is_install_mode = is_install_mode
         self.theme = theme.lower().strip() if (theme and isinstance(theme, str)) else "dark"
 
         ctk.set_appearance_mode(self.theme)
@@ -199,8 +201,7 @@ class ConfigApp(ctk.CTk):
             app_name = self.current_config.valor("app.name", default="Sistema")
             self.title(t18n("asiscfg.title", "Mantenimiento de Configuración - {app_name}", app_name=app_name))
         # Capa 4: Verificación de Integridad de @asiscfg y Autenticación
-        meta = self.context.metadata if isinstance(self.context.metadata, dict) else {}
-        is_install_mode = bool(meta.get("install"))
+        is_install_mode = self.is_install_mode
 
         asiscfg_sec = self.current_config.get(SECTION_ASISCFG, {}) if isinstance(self.current_config, dict) else {}
         has_admin_hash = isinstance(asiscfg_sec, dict) and bool(asiscfg_sec.get("admin_pass_hash"))

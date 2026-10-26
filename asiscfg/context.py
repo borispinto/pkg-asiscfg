@@ -59,7 +59,6 @@ class AppConfigContext:
     key_bytes: Optional[bytes] = None
     format_mode: str = "plain"
     active_profile: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         engine = get_format_engine(self.format_mode)
@@ -203,7 +202,6 @@ def create_app_context(
     active_profile: Optional[str] = None,
     is_standalone: bool = False,
     dev_mode: bool = False,
-    metadata: Optional[Dict[str, Any]] = None,
     default_config: Optional[Dict[str, Any]] = None,
     validation_rules: Optional[Dict[str, Any]] = None,
 ) -> AppConfigContext:
@@ -239,7 +237,6 @@ def create_app_context(
         key_bytes=key_bytes,
         format_mode=engine.mode_id,
         active_profile=active_profile,
-        metadata=dict(metadata) if metadata else {},
     )
     if norm_action in ["generate_key", "export_schema"]:
         return ctx
@@ -274,7 +271,7 @@ def create_app_context(
     schema_info = load_schema_definition(resolved_schema)
     ctx.default_config = schema_info["default_config"]
     ctx.validation_rules = schema_info["validation_rules"]
-    ctx.profile_template = schema_info["profile_template"]
+    ctx.profile_template = schema_info["profile_template"] if norm_action != "consume" else {}
     ctx.password_fields = schema_info["password_fields"]
     ctx.public_fields = schema_info["public_fields"]
     ctx.security_level = schema_info["security_level"]

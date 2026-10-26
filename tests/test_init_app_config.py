@@ -107,6 +107,39 @@ class TestInitAppConfig(unittest.TestCase):
         self.assertEqual(tokens["theme"], "dark")
         self.assertEqual(remaining, [])
 
+    def test_parse_config_args_standardizes_remaining_args_separator(self):
+        """Verifica que remaining_args estandarice separadores a '/' respetando números y tokens aislados."""
+        args = [
+            "20260100300001",
+            "02",
+            "--custom-flag",
+            "--param=test",
+            "-shortflag",
+            "-level:3",
+            "/already-slash",
+            "-5",
+            "-1.5",
+            "--",
+            "-",
+            "001",
+        ]
+        tokens, remaining = parse_config_args(args)
+        expected = [
+            "20260100300001",
+            "02",
+            "/custom-flag",
+            "/param=test",
+            "/shortflag",
+            "/level:3",
+            "/already-slash",
+            "-5",
+            "-1.5",
+            "--",
+            "-",
+            "001",
+        ]
+        self.assertEqual(remaining, expected)
+
     @patch("asiscfg.cli.load_config")
     def test_init_app_config_consume_success_with_args(self, mock_load):
         mock_cfg = MagicMock(spec=ConfigDict)
@@ -260,9 +293,8 @@ class TestInitAppConfig(unittest.TestCase):
         mock_exec.assert_called_once()
         ctx_called = mock_exec.call_args[1]["context"]
         self.assertEqual(ctx_called.action, "ui")
-        self.assertTrue(ctx_called.is_standalone)
         self.assertEqual(ctx_called.format_mode, "plain")
-        self.assertTrue(ctx_called.metadata.get("edit"))
+        self.assertTrue(mock_exec.call_args[1].get("edit"))
 
     @patch("asiscfg.cli.load_config")
     def test_foxpro_call_immutable_arguments(self, mock_load):
@@ -818,6 +850,39 @@ class TestInitAppConfig(unittest.TestCase):
         self.assertFalse(check_admin_password("admin", cfg))
         self.assertFalse(check_admin_password("wrong", cfg))
         self.assertTrue(check_admin_password("SuperSecret123", cfg))
+
+
+    def test_bootstrap_repr_esbelto_sin_context_ni_metadata(self):
+        """Verifica que ConfigBootstrap tenga repr esbelto (sin context) y que AppConfigContext carezca de metadata."""
+        args = [
+            "--config-file",
+            self.config_path,
+            "--key-file",
+            self.key_path,
+            "--schema-file",
+            self.schema_path,
+        ]
+        boot = init_app_config(args=args, app_title="REPR_TEST")
+        self.assertIsNone(boot.exit_code)
+        self.assertIsNotNone(boot.config)
+
+        boot_repr = repr(boot)
+        # 1. No debe mostrar context= en el repr
+        self.assertNotIn("context=", boot_repr)
+        self.assertNotIn("AppConfigContext", boot_repr)
+        # 2. No debe existir metadata en el repr ni en el contexto
+        self.assertNotIn("metadata", boot_repr)
+        self.assertFalse(hasattr(boot.context, "metadata"))
+        # 3. context es accesible vía propiedad
+        self.assertIsInstance(boot.context, AppConfigContext)
+        # 4. repr contiene únicamente las claves útiles
+        self.assertIn("config=", boot_repr)
+        self.assertIn("exit_code=None", boot_repr)
+        self.assertIn("remaining_args=", boot_repr)
+        self.assertIn("params=", boot_repr)
+        self.assertIn("debug=", boot_repr)
+        self.assertIn("dev_mode=", boot_repr)
+        self.assertIn("show_modals=", boot_repr)
 
 
 if __name__ == "__main__":

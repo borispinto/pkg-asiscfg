@@ -852,9 +852,11 @@ class TestConfigToolPackage(unittest.TestCase):
     def test_run_asiscfg_reset_admin_pass(self):
         # Probar reset_admin_pass a través de execute_app_action
         self.context.dev_mode = True
-        self.context.metadata["reset_admin_pass"] = True
-        self.context.metadata["new_admin_pass"] = "admin"
-        code = execute_app_action(context=self.context)
+        code = execute_app_action(
+            context=self.context,
+            reset_admin_pass=True,
+            new_admin_pass="admin",
+        )
         self.assertEqual(code, 0)
         self.assertTrue(os.path.exists(self.config_path))
         cfg = load_config(self.context)
