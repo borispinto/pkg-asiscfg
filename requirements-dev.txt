@@ -1,0 +1,8 @@
+# Dependencias de desarrollo, compilación y empaquetado para pkg-asiscfg
+-r requirements.txt
+
+# ==============================================================================
+# Herramientas de empaquetado y compilación a ejecutable (.exe / build_exe.py)
+# ==============================================================================
+pyinstaller>=6.0.0
+pyinstaller-hooks-contrib>=2024.0
